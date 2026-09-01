@@ -16,6 +16,10 @@ function App() {
   const [giderTalepleri, setGiderTalepleri] = useState([]);
   const [kullanicilar, setKullanicilar] = useState([]);
 
+  // --- DÜZENLEME STATE'LERİ ---
+  const [duzenlenenGelirId, setDuzenlenenGelirId] = useState(null);
+  const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
+
   // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
   const [giderForm, setGiderForm] = useState(() => {
     const saved = localStorage.getItem('kasa_giderForm');
@@ -59,6 +63,7 @@ function App() {
   // ==========================================
   useEffect(() => {
     if (!girisYapanKullanici || girisYapanKullanici.rol === 'Personel') return;
+    if (duzenlenenGiderId) return; // Düzenleme modundayken taslak auto-save'i tetiklemesin
     if (!giderForm.kimeOdenecek && !giderForm.tutar && !giderForm.kategori && !giderForm.aciklama) return;
 
     const timer = setTimeout(async () => {
@@ -103,13 +108,14 @@ function App() {
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [giderForm, giderTaslakId, girisYapanKullanici]);
+  }, [giderForm, giderTaslakId, girisYapanKullanici, duzenlenenGiderId]);
 
   // ==========================================
   // 2. GELİR İÇİN OTOMATİK KAYIT (AUTO-SAVE)
   // ==========================================
   useEffect(() => {
     if (!girisYapanKullanici || girisYapanKullanici.rol === 'Personel') return;
+    if (duzenlenenGelirId) return; // Düzenleme modundayken taslak auto-save'i tetiklemesin
     if (!gelirForm.kaynak && !gelirForm.tutar && !gelirForm.aciklama) return;
 
     const timer = setTimeout(async () => {
@@ -149,7 +155,7 @@ function App() {
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [gelirForm, gelirTaslakId, girisYapanKullanici]);
+  }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
   // 3. TALEP İÇİN OTOMATİK KAYIT (AUTO-SAVE)
@@ -258,14 +264,15 @@ function App() {
     setLoginForm({ kullaniciAdi: '', sifre: '' });
   };
 
+  // --- GİDER EKLE / GÜNCELLE ---
   const giderEkle = async (e) => {
     e.preventDefault();
     if (!giderForm.kimeOdenecek || !giderForm.tutar) return;
 
     try {
       const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
-      if (giderTaslakId) {
-        await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
+      if (duzenlenenGiderId) {
+        await fetch(`${API_URL}/Gider/${duzenlenenGiderId}?rol=${userRol}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
@@ -273,15 +280,28 @@ function App() {
             tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
           })
         });
+        setDuzenlenenGiderId(null);
+        alert("Gider başarıyla güncellendi.");
       } else {
-        await fetch(`${API_URL}/Gider`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
-            tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
-            tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
-          })
-        });
+        if (giderTaslakId) {
+          await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
+              tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
+              tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
+            })
+          });
+        } else {
+          await fetch(`${API_URL}/Gider`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
+              tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
+              tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
+            })
+          });
+        }
       }
 
       setGiderForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
@@ -292,27 +312,65 @@ function App() {
     } catch (error) { console.error("Gider ekleme hatası:", error); }
   };
 
+  const giderDuzenleBaslat = (item) => {
+    setDuzenlenenGiderId(item.id);
+    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori, tutar: item.tutar, aciklama: item.aciklama || '' });
+  };
+
+  const giderSil = async (id) => {
+    if (!window.confirm("Bu gideri silmek istediğinize emin misiniz?")) return;
+    try {
+      const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
+      const response = await fetch(`${API_URL}/Gider/${id}?rol=${userRol}`, { method: 'DELETE' });
+      if (response.ok) {
+        if (id === giderTaslakId) {
+           setGiderTaslakId(null);
+           setGiderForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
+           localStorage.removeItem('kasa_giderForm');
+           localStorage.removeItem('kasa_giderTaslakId');
+        }
+        verileriGetir();
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(errData.message || "Bu işlem için yetkiniz yok.");
+      }
+    } catch (error) { console.error("Silme hatası:", error); }
+  };
+
+  // --- GELİR EKLE / GÜNCELLE ---
   const gelirEkle = async (e) => {
     e.preventDefault();
     if (!gelirForm.kaynak || !gelirForm.tutar) return;
 
     try {
-      if (gelirTaslakId) {
-        await fetch(`${API_URL}/Gelir/${gelirTaslakId}`, {
+      if (duzenlenenGelirId) {
+        await fetch(`${API_URL}/Gelir/${duzenlenenGelirId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
             aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
           })
         });
+        setDuzenlenenGelirId(null);
+        alert("Gelir başarıyla güncellendi.");
       } else {
-        await fetch(`${API_URL}/Gelir`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
-            aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
-          })
-        });
+        if (gelirTaslakId) {
+          await fetch(`${API_URL}/Gelir/${gelirTaslakId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
+              aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
+            })
+          });
+        } else {
+          await fetch(`${API_URL}/Gelir`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
+              aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
+            })
+          });
+        }
       }
 
       setGelirForm({ kaynak: '', tutar: '', aciklama: '' });
@@ -321,6 +379,29 @@ function App() {
       localStorage.removeItem('kasa_gelirTaslakId');
       verileriGetir();
     } catch (error) { console.error("Gelir ekleme hatası:", error); }
+  };
+
+  const gelirDuzenleBaslat = (item) => {
+    setDuzenlenenGelirId(item.id);
+    setGelirForm({ kaynak: item.kaynak, tutar: item.tutar, aciklama: item.aciklama || '' });
+  };
+
+  const gelirSil = async (id) => {
+    if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
+    try {
+      const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        if (id === gelirTaslakId) {
+           setGelirTaslakId(null);
+           setGelirForm({ kaynak: '', tutar: '', aciklama: '' });
+           localStorage.removeItem('kasa_gelirForm');
+           localStorage.removeItem('kasa_gelirTaslakId');
+        }
+        verileriGetir();
+      } else {
+        alert("Gelir silinemedi.");
+      }
+    } catch (error) { console.error("Gelir silme hatası:", error); }
   };
 
   const talepEkle = async (e) => {
@@ -382,25 +463,6 @@ function App() {
         alert("Kullanıcı başarıyla eklendi.");
       }
     } catch (error) { console.error("Kullanıcı ekleme hatası:", error); }
-  };
-
-  const giderSil = async (id) => {
-    try {
-      const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
-      const response = await fetch(`${API_URL}/Gider/${id}?rol=${userRol}`, { method: 'DELETE' });
-      if (response.ok) {
-        if (id === giderTaslakId) {
-           setGiderTaslakId(null);
-           setGiderForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
-           localStorage.removeItem('kasa_giderForm');
-           localStorage.removeItem('kasa_giderTaslakId');
-        }
-        verileriGetir();
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(errData.message || "Bu işlem için yetkiniz yok.");
-      }
-    } catch (error) { console.error("Silme hatası:", error); }
   };
 
   // --- Raporlama & Hesaplamalar ---
@@ -572,36 +634,47 @@ function App() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Gelir Ekle {gelirTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+                  {duzenlenenGelirId ? 'Geliri Düzenle' : `Yeni Gelir Ekle ${gelirTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
+                </h2>
                 <form onSubmit={gelirEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Gelir Kaynağı (Örn: Satış)"
                     value={gelirForm.kaynak} onChange={(e) => setGelirForm({ ...gelirForm, kaynak: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
                   />
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={gelirForm.tutar} onChange={(e) => setGelirForm({ ...gelirForm, tutar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
                   />
                   <input
                     type="text" placeholder="Açıklama"
                     value={gelirForm.aciklama} onChange={(e) => setGelirForm({ ...gelirForm, aciklama: e.target.value })}
                     className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
                   />
-                  <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
-                    Geliri Kaydet & Onayla
-                  </button>
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
+                      {duzenlenenGelirId ? 'Geliri Güncelle' : 'Geliri Kaydet & Onayla'}
+                    </button>
+                    {duzenlenenGelirId && (
+                      <button type="button" onClick={() => { setDuzenlenenGelirId(null); setGelirForm({kaynak: '', tutar: '', aciklama: ''}); }} className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm">
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Gider Ekle {giderTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+                  {duzenlenenGiderId ? 'Gideri Düzenle' : `Yeni Gider Ekle ${giderTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
+                </h2>
                 <form onSubmit={giderEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Kime Ödendi / Firma"
                     value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
                   />
                   <input
                     type="text" placeholder="Kategori (Örn: Fatura, Ofis)"
@@ -611,21 +684,28 @@ function App() {
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
                   />
                   <input
                     type="text" placeholder="Açıklama"
                     value={giderForm.aciklama} onChange={(e) => setGiderForm({ ...giderForm, aciklama: e.target.value })}
                     className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
                   />
-                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
-                    Gideri Kaydet & Onayla
-                  </button>
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                      {duzenlenenGiderId ? 'Gideri Güncelle' : 'Gideri Kaydet & Onayla'}
+                    </button>
+                    {duzenlenenGiderId && (
+                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: '', tutar: '', aciklama: ''}); }} className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm">
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
             </div>
 
-            {/* GELİR LİSTESİ TABLOSU EKLENDİ */}
+            {/* GELİR LİSTESİ TABLOSU (DÜZENLE & SİL EKLENDİ) */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
               <h2 className="text-lg font-semibold text-slate-700">Kasa Gelir Listesi</h2>
               <div className="overflow-x-auto">
@@ -635,19 +715,24 @@ function App() {
                       <th className="pb-3 font-medium">Tarih</th>
                       <th className="pb-3 font-medium">Gelir Kaynağı</th>
                       <th className="pb-3 font-medium">Açıklama</th>
-                      <th className="pb-3 font-medium text-right">Tutar</th>
+                      <th className="pb-3 font-medium">Tutar</th>
+                      <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
                     {gelirler.length === 0 ? (
-                      <tr><td colSpan="4" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
+                      <tr><td colSpan="5" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
                     ) : (
                       gelirler.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium text-slate-800">{item.kaynak}</td>
                           <td className="py-3">{item.aciklama}</td>
-                          <td className="py-3 font-semibold text-emerald-600 text-right">+{item.tutar.toLocaleString('tr-TR')} TL</td>
+                          <td className="py-3 font-semibold text-emerald-600">+{item.tutar.toLocaleString('tr-TR')} TL</td>
+                          <td className="py-3 text-right space-x-2">
+                            <button onClick={() => gelirDuzenleBaslat(item)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
+                            <button onClick={() => gelirSil(item.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -673,7 +758,7 @@ function App() {
                       <th className="pb-3 font-medium">Kategori</th>
                       <th className="pb-3 font-medium">Açıklama</th>
                       <th className="pb-3 font-medium">Tutar</th>
-                      {girisYapanKullanici.rol === 'Yonetici' && <th className="pb-3 font-medium text-right">İşlem</th>}
+                      <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
@@ -687,11 +772,10 @@ function App() {
                           <td className="py-3"><span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs">{item.kategori}</span></td>
                           <td className="py-3">{item.aciklama}</td>
                           <td className="py-3 font-semibold text-red-600">-{item.tutar.toLocaleString('tr-TR')} TL</td>
-                          {girisYapanKullanici.rol === 'Yonetici' && (
-                            <td className="py-3 text-right">
-                              <button onClick={() => giderSil(item.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
-                            </td>
-                          )}
+                          <td className="py-3 text-right space-x-2">
+                            <button onClick={() => giderDuzenleBaslat(item)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
+                            <button onClick={() => giderSil(item.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                          </td>
                         </tr>
                       ))
                     )}
