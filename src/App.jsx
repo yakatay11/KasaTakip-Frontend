@@ -61,9 +61,10 @@ function App() {
     if (!giderForm.kimeOdenecek && !giderForm.tutar && !giderForm.kategori && !giderForm.aciklama) return;
 
     const timer = setTimeout(async () => {
+      const userRol = girisYapanKullanici.rol;
       if (giderTaslakId) {
         try {
-          await fetch(`${API_URL}/Gider/${giderTaslakId}`, {
+          await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               kimeOdendi: giderForm.kimeOdenecek || '-',
@@ -259,8 +260,9 @@ function App() {
     if (!giderForm.kimeOdenecek || !giderForm.tutar) return;
 
     try {
+      const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
       if (giderTaslakId) {
-        await fetch(`${API_URL}/Gider/${giderTaslakId}`, {
+        await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
@@ -381,7 +383,8 @@ function App() {
 
   const giderSil = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/Gider/${id}`, { method: 'DELETE' });
+      const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
+      const response = await fetch(`${API_URL}/Gider/${id}?rol=${userRol}`, { method: 'DELETE' });
       if (response.ok) {
         if (id === giderTaslakId) {
            setGiderTaslakId(null);
@@ -390,6 +393,9 @@ function App() {
            localStorage.removeItem('kasa_giderTaslakId');
         }
         verileriGetir();
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        alert(errData.message || "Bu işlem için yetkiniz yok.");
       }
     } catch (error) { console.error("Silme hatası:", error); }
   };
