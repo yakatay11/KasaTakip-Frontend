@@ -3,8 +3,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 
-// Canlıya alınca burayı yeni sunucu linkiyle değiştireceğiz
-const API_URL = "https://kasa-takip-byfabric.onrender.com"; 
+const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(null);
@@ -225,16 +224,28 @@ function App() {
     e.preventDefault();
     try {
       const response = await fetch(`${API_URL}/Kullanici/giris`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginForm)
       });
-      const data = await response.json();
+      
+      const contentType = response.headers.get("content-type");
+      let data = {};
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      }
+
       if (response.ok) {
         setGirisYapanKullanici({ id: data.id, adSoyad: data.adSoyad, rol: data.rol });
         if (data.rol === 'Personel') setAktifSekme('talepler');
         else setAktifSekme('islemler');
-      } else { alert(data.message || "Giriş başarısız!"); }
-    } catch (error) { console.error("Giriş hatası:", error); }
+      } else { 
+        alert(data.message || "Giriş başarısız!"); 
+      }
+    } catch (error) { 
+      console.error("Giriş hatası:", error); 
+      alert("Sunucuya bağlanırken bir hata oluştu.");
+    }
   };
 
   const cikisYap = () => {
