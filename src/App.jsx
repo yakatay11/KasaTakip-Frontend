@@ -8,7 +8,7 @@ const API_URL = "https://kasa-takip-byfabric.onrender.com/api";
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(null);
   const [loginForm, setLoginForm] = useState({ kullaniciAdi: '', sifre: '' });
-  const [yukleniyor, setYukleniyor] = useState(false); // <-- Yüklenme durumu eklendi
+  const [yukleniyor, setYukleniyor] = useState(false);
 
   const [giderler, setGiderler] = useState([]);
   const [gelirler, setGelirler] = useState([]);
@@ -222,10 +222,9 @@ function App() {
     if (girisYapanKullanici) verileriGetir();
   }, [girisYapanKullanici]);
 
-  // Güncellenen ve yüklenme göstergeli giriş fonksiyonu
   const girisYap = async (e) => {
     e.preventDefault();
-    setYukleniyor(true); // Yükleniyor durumunu başlat
+    setYukleniyor(true);
     try {
       const response = await fetch(`${API_URL}/Kullanici/giris`, {
         method: 'POST', 
@@ -250,7 +249,7 @@ function App() {
       console.error("Giriş hatası:", error); 
       alert("Sunucuya bağlanırken bir hata oluştu. (Render sunucusu uyanıyor olabilir, lütfen tekrar deneyin)");
     } finally {
-      setYukleniyor(false); // İşlem bitince yüklenme durumunu kapat
+      setYukleniyor(false);
     }
   };
 
@@ -259,7 +258,6 @@ function App() {
     setLoginForm({ kullaniciAdi: '', sifre: '' });
   };
 
-  // --- ONAY & KAYDET BUTONLARI FONKSİYONLARI ---
   const giderEkle = async (e) => {
     e.preventDefault();
     if (!giderForm.kimeOdenecek || !giderForm.tutar) return;
@@ -624,6 +622,37 @@ function App() {
                     Gideri Kaydet & Onayla
                   </button>
                 </form>
+              </div>
+            </div>
+
+            {/* GELİR LİSTESİ TABLOSU EKLENDİ */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
+              <h2 className="text-lg font-semibold text-slate-700">Kasa Gelir Listesi</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                      <th className="pb-3 font-medium">Tarih</th>
+                      <th className="pb-3 font-medium">Gelir Kaynağı</th>
+                      <th className="pb-3 font-medium">Açıklama</th>
+                      <th className="pb-3 font-medium text-right">Tutar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                    {gelirler.length === 0 ? (
+                      <tr><td colSpan="4" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
+                    ) : (
+                      gelirler.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
+                          <td className="py-3 font-medium text-slate-800">{item.kaynak}</td>
+                          <td className="py-3">{item.aciklama}</td>
+                          <td className="py-3 font-semibold text-emerald-600 text-right">+{item.tutar.toLocaleString('tr-TR')} TL</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
