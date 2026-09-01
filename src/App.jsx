@@ -4,7 +4,7 @@ import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 
 // Canlıya alınca burayı yeni sunucu linkiyle değiştireceğiz
-const API_URL = "http://localhost:5042/api"; 
+const API_URL = "https://kasa-takip-byfabric.onrender.com"; 
 
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(null);
