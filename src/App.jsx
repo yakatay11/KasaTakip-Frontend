@@ -8,6 +8,7 @@ const API_URL = "https://kasa-takip-byfabric.onrender.com/api";
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(null);
   const [loginForm, setLoginForm] = useState({ kullaniciAdi: '', sifre: '' });
+  const [yukleniyor, setYukleniyor] = useState(false); // <-- Yüklenme durumu eklendi
 
   const [giderler, setGiderler] = useState([]);
   const [gelirler, setGelirler] = useState([]);
@@ -221,8 +222,10 @@ function App() {
     if (girisYapanKullanici) verileriGetir();
   }, [girisYapanKullanici]);
 
+  // Güncellenen ve yüklenme göstergeli giriş fonksiyonu
   const girisYap = async (e) => {
     e.preventDefault();
+    setYukleniyor(true); // Yükleniyor durumunu başlat
     try {
       const response = await fetch(`${API_URL}/Kullanici/giris`, {
         method: 'POST', 
@@ -245,7 +248,9 @@ function App() {
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      alert("Sunucuya bağlanırken bir hata oluştu.");
+      alert("Sunucuya bağlanırken bir hata oluştu. (Render sunucusu uyanıyor olabilir, lütfen tekrar deneyin)");
+    } finally {
+      setYukleniyor(false); // İşlem bitince yüklenme durumunu kapat
     }
   };
 
@@ -483,8 +488,12 @@ function App() {
                 placeholder="••••••••" required
               />
             </div>
-            <button type="submit" className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 transition text-sm shadow-sm">
-              Sisteme Giriş Yap
+            <button 
+              type="submit" 
+              disabled={yukleniyor}
+              className={`w-full text-white font-medium py-3 rounded-lg transition text-sm shadow-sm ${yukleniyor ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              {yukleniyor ? 'Giriş Yapılıyor (Sunucu uyanıyor olabilir)...' : 'Sisteme Giriş Yap'}
             </button>
           </form>
         </div>
