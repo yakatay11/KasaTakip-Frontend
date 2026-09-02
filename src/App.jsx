@@ -14,6 +14,9 @@ function App() {
   const [loginForm, setLoginForm] = useState({ kullaniciAdi: '', sifre: '' });
   const [yukleniyor, setYukleniyor] = useState(false);
 
+  // --- ŞİFRE GÜNCELLEME STATE'İ ---
+  const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
+
   const [giderler, setGiderler] = useState([]);
   const [gelirler, setGelirler] = useState([]);
   const [arşivRaporlar, setArşivRaporlar] = useState([]);
@@ -279,6 +282,38 @@ function App() {
     localStorage.removeItem('kasa_girisYapanKullanici');
     setLoginForm({ kullaniciAdi: '', sifre: '' });
     toast.success("Çıkış yapıldı.");
+  };
+
+  // --- ŞİFRE GÜNCELLEME İŞLEMİ ---
+  const sifreGuncelle = async (e) => {
+    e.preventDefault();
+    if (!sifreForm.yeniSifre) {
+      toast.error("Lütfen yeni şifreyi giriniz.");
+      return;
+    }
+    if (sifreForm.yeniSifre !== sifreForm.yeniSifreTekrar) {
+      toast.error("Şifreler birbiriyle eşleşmiyor!");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/Kullanici/${girisYapanKullanici.id}/sifre`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sifre: sifreForm.yeniSifre })
+      });
+
+      if (response.ok) {
+        toast.success("Şifreniz başarıyla güncellendi.");
+        setSifreForm({ yeniSifre: '', yeniSifreTekrar: '' });
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.message || "Şifre güncellenemedi.");
+      }
+    } catch (error) {
+      console.error("Şifre güncelleme hatası:", error);
+      toast.error("Sunucu bağlantı hatası.");
+    }
   };
 
   // --- GİDER EKLE / GÜNCELLE ---
@@ -1097,36 +1132,60 @@ function App() {
 
         {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol === 'Yonetici' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit">
-              <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Kullanıcı Ekle</h2>
-              <form onSubmit={yeniKullaniciEkle} className="space-y-4">
-                <input
-                  type="text" placeholder="Ad Soyad"
-                  value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
-                />
-                <input
-                  type="text" placeholder="Kullanıcı Adı"
-                  value={yeniKullaniciForm.kullaniciAdi} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, kullaniciAdi: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
-                />
-                <input
-                  type="password" placeholder="Şifre"
-                  value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
-                />
-                <select
-                  value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-white"
-                >
-                  <option value="Yonetici">Yönetici</option>
-                  <option value="Muhasebe">Muhasebe</option>
-                  <option value="Personel">Personel</option>
-                </select>
-                <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
-                  Kullanıcıyı Kaydet
-                </button>
-              </form>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Kullanıcı Ekle</h2>
+                <form onSubmit={yeniKullaniciEkle} className="space-y-4">
+                  <input
+                    type="text" placeholder="Ad Soyad"
+                    value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                  />
+                  <input
+                    type="text" placeholder="Kullanıcı Adı"
+                    value={yeniKullaniciForm.kullaniciAdi} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, kullaniciAdi: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                  />
+                  <input
+                    type="password" placeholder="Şifre"
+                    value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                  />
+                  <select
+                    value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-white"
+                  >
+                    <option value="Yonetici">Yönetici</option>
+                    <option value="Muhasebe">Muhasebe</option>
+                    <option value="Personel">Personel</option>
+                  </select>
+                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                    Kullanıcıyı Kaydet
+                  </button>
+                </form>
+              </div>
+
+              <hr className="border-slate-100" />
+
+              {/* ŞİFRE GÜNCELLEME FORMU */}
+              <div>
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">Şifremi Güncelle</h2>
+                <form onSubmit={sifreGuncelle} className="space-y-4">
+                  <input
+                    type="password" placeholder="Yeni Şifre"
+                    value={sifreForm.yeniSifre} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifre: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                  />
+                  <input
+                    type="password" placeholder="Yeni Şifre (Tekrar)"
+                    value={sifreForm.yeniSifreTekrar} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifreTekrar: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                  />
+                  <button type="submit" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-900 transition text-sm">
+                    Şifreyi Değiştir
+                  </button>
+                </form>
+              </div>
             </div>
 
             <div className="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
@@ -1156,6 +1215,28 @@ function App() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Personel veya Muhasebe için de kullanıcı sekmesi kapalıyken şifre değiştirme alanı eklenebilir veya kullanıcı yönetimi sekmesi rollerine göre genişletilebilir */}
+        {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol !== 'Yonetici' && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 max-w-md mx-auto space-y-4">
+            <h2 className="text-lg font-semibold text-slate-700">Şifremi Güncelle</h2>
+            <form onSubmit={sifreGuncelle} className="space-y-4">
+              <input
+                type="password" placeholder="Yeni Şifre"
+                value={sifreForm.yeniSifre} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifre: e.target.value })}
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+              />
+              <input
+                type="password" placeholder="Yeni Şifre (Tekrar)"
+                value={sifreForm.yeniSifreTekrar} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifreTekrar: e.target.value })}
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+              />
+              <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                Şifreyi Değiştir
+              </button>
+            </form>
           </div>
         )}
 
