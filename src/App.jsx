@@ -270,7 +270,7 @@ function App() {
     return () => clearTimeout(timer);
   }, [talepForm, talepTaslakId, girisYapanKullanici]);
 
-  // --- TEMEL FONKSİYONLAR (YEREL GÜVENLİK KATMANLI) ---
+  // --- TEMEL FONKSİYONLAR (OTOMATİK KURTARMA MANTIĞI EKLENDİ) ---
   const verileriGetir = async () => {
     try {
       const giderRes = await fetch(`${API_URL}/Gider`);
@@ -279,18 +279,91 @@ function App() {
       const talepRes = await fetch(`${API_URL}/GiderTalebi`);
       const kulRes = await fetch(`${API_URL}/Kullanici`);
       
-      if (giderRes.ok) {
-        const data = await giderRes.json();
-        if (data && data.length > 0) setGiderler(data);
+      let apiGiderler = [];
+      let apiGelirler = [];
+
+      if (giderRes.ok) apiGiderler = await giderRes.json();
+      if (gelirRes.ok) apiGelirler = await gelirRes.json();
+
+      const yerelGiderler = JSON.parse(localStorage.getItem('kasa_giderler') || '[]');
+      const yerelGelirler = JSON.parse(localStorage.getItem('kasa_gelirler') || '[]');
+
+      // EĞER RENDER SUNUCUSU SIFIRLANMIŞSA (Yereldeki kayıt sayısı sunucudan fazlaysa)
+      const sunucuSifirlanmis = (apiGiderler.length < yerelGiderler.length) || (apiGelirler.length < yerelGelirler.length);
+
+      if (sunucuSifirlanmis) {
+        toast.loading("Sunucu uyku modunda sıfırlanmış. Kayıplarınız yerel yedekten kurtarılıyor...", { id: 'sync', duration: 5000 });
+        
+        // Önce verileri hemen ekranda göster
+        setGiderler(yerelGiderler);
+        setGelirler(yerelGelirler);
+
+        // Giderleri arka planda sunucuya yeniden kaydet
+        if (apiGiderler.length < yerelGiderler.length) {
+          for (const item of yerelGiderler) {
+            const varMi = apiGiderler.find(a => a.tutar === item.tutar && a.aciklama === item.aciklama);
+            if (!varMi) {
+              await fetch(`${API_URL}/Gider`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  kimeOdendi: item.kimeOdendi || item.isimVeyaKaynak || '-',
+                  kategori: item.kategori || 'Diğer',
+                  tutar: parseFloat(item.tutar) || 0,
+                  aciklama: item.aciklama || 'Kurtarılan Kayıt',
+                  tarih: item.tarih,
+                  islemiYapanAdminId: girisYapanKullanici?.id || 1
+                })
+              });
+            }
+          }
+        }
+
+        // Gelirleri arka planda sunucuya yeniden kaydet
+        if (apiGelirler.length < yerelGelirler.length) {
+          for (const item of yerelGelirler) {
+            const varMi = apiGelirler.find(a => a.tutar === item.tutar && a.aciklama === item.aciklama);
+            if (!varMi) {
+              await fetch(`${API_URL}/Gelir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  kaynak: item.kaynak || item.isimVeyaKaynak || '-',
+                  tutar: parseFloat(item.tutar) || 0,
+                  aciklama: item.aciklama || 'Kurtarılan Kayıt',
+                  tarih: item.tarih
+                })
+              });
+            }
+          }
+        }
+        
+        toast.success("Tüm verileriniz başarıyla kurtarıldı!", { id: 'sync' });
+        
+        // Kurtarılan verilerin yeni ID'lerini almak için tekrar çek
+        const guncelGider = await fetch(`${API_URL}/Gider`);
+        const guncelGelir = await fetch(`${API_URL}/Gelir`);
+        if (guncelGider.ok) setGiderler(await guncelGider.json());
+        if (guncelGelir.ok) setGelirler(await guncelGelir.json());
+
+      } else {
+        // Normal Çalışma: Sunucudaki veriyi baz al
+        setGiderler(apiGiderler);
+        setGelirler(apiGelirler);
       }
-      if (gelirRes.ok) {
-        const data = await gelirRes.json();
-        if (data && data.length > 0) setGelirler(data);
-      }
+
       if (raporRes.ok) setArşivRaporlar(await raporRes.json());
       if (talepRes.ok) setGiderTalepleri(await talepRes.json());
       if (kulRes.ok) setKullanicilar(await kulRes.json());
-    } catch (error) { console.error("Veri çekme hatası (yerel veriler korunuyor):", error); }
+
+    } catch (error) { 
+      console.error("Veri çekme hatası:", error); 
+      // İnternet kopsa bile yerel verileri ekranda göster
+      const yGider = JSON.parse(localStorage.getItem('kasa_giderler') || '[]');
+      const yGelir = JSON.parse(localStorage.getItem('kasa_gelirler') || '[]');
+      if (yGider.length > 0) setGiderler(yGider);
+      if (yGelir.length > 0) setGelirler(yGelir);
+    }
   };
 
   useEffect(() => {
@@ -521,8 +594,14 @@ function App() {
   const giderSil = async (id) => {
     if (!window.confirm("Bu gideri silmek istediğinize emin misiniz?")) return;
     try {
+      // Oto-kurtarmayı yanlışlıkla tetiklememek için önce yerel depoyu temizle
+      const guncelListe = giderler.filter(g => g.id !== id && g.gercekId !== id);
+      setGiderler(guncelListe);
+      localStorage.setItem('kasa_giderler', JSON.stringify(guncelListe));
+
       const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
       const response = await fetch(`${API_URL}/Gider/${id}?rol=${userRol}`, { method: 'DELETE' });
+      
       if (response.ok) {
         if (id === giderTaslakId) {
            setGiderTaslakId(null);
@@ -535,6 +614,7 @@ function App() {
       } else {
         const errData = await response.json().catch(() => ({}));
         toast.error(errData.message || "Bu işlem için yetkiniz yok.");
+        verileriGetir(); // Başarısız olursa orijinali geri yükle
       }
     } catch (error) { 
       console.error("Silme hatası:", error); 
@@ -599,6 +679,11 @@ function App() {
   const gelirSil = async (id) => {
     if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
+      // Oto-kurtarmayı yanlışlıkla tetiklememek için önce yerel depoyu temizle
+      const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
+      setGelirler(guncelListe);
+      localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
+
       const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
       if (response.ok) {
         if (id === gelirTaslakId) {
@@ -611,6 +696,7 @@ function App() {
         toast.success("Gelir silindi.");
       } else {
         toast.error("Gelir silinemedi.");
+        verileriGetir(); // Başarısız olursa orijinali geri yükle
       }
     } catch (error) { 
       console.error("Gelir silme hatası:", error); 
