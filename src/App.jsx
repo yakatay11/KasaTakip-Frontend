@@ -49,8 +49,10 @@ function App() {
   const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
   const [duzenlenenKullaniciId, setDuzenlenenKullaniciId] = useState(null);
 
-  // --- İŞLEMLER SEKME ARAMASI ---
+  // --- İŞLEMLER SEKME ARAMASI VE SIRALAMA ---
   const [islemArama, setIslemArama] = useState('');
+  const [gelirSiralama, setGelirSiralama] = useState('yeni');
+  const [giderSiralama, setGiderSiralama] = useState('yeni');
 
   // --- RAPORLAR FİLTRELEME STATE'LERİ ---
   const [raporArama, setRaporArama] = useState('');
@@ -615,17 +617,33 @@ function App() {
     }
   };
 
-  // --- İŞLEMLER İÇİN YEREL FİLTRELEME ---
-  const islemIcinGelirler = gelirler.filter(item => 
+  // --- İŞLEMLER İÇİN YEREL FİLTRELEME VE SIRALAMA ---
+  const filtrelenmisGelirler = gelirler.filter(item => 
     (item.kaynak || '').toLowerCase().includes(islemArama.toLowerCase()) ||
     (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
   );
+
+  const siralanmisGelirler = [...filtrelenmisGelirler].sort((a, b) => {
+    if (gelirSiralama === 'yeni') return new Date(b.tarih) - new Date(a.tarih);
+    if (gelirSiralama === 'eski') return new Date(a.tarih) - new Date(b.tarih);
+    if (gelirSiralama === 'tutar-azalan') return b.tutar - a.tutar;
+    if (gelirSiralama === 'tutar-artan') return a.tutar - b.tutar;
+    return 0;
+  });
   
-  const islemIcinGiderler = giderler.filter(item => 
+  const filtrelenmisGiderler = giderler.filter(item => 
     (item.kimeOdendi || '').toLowerCase().includes(islemArama.toLowerCase()) ||
     (item.kategori || '').toLowerCase().includes(islemArama.toLowerCase()) ||
     (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
   );
+
+  const siralanmisGiderler = [...filtrelenmisGiderler].sort((a, b) => {
+    if (giderSiralama === 'yeni') return new Date(b.tarih) - new Date(a.tarih);
+    if (giderSiralama === 'eski') return new Date(a.tarih) - new Date(b.tarih);
+    if (giderSiralama === 'tutar-azalan') return b.tutar - a.tutar;
+    if (giderSiralama === 'tutar-artan') return a.tutar - b.tutar;
+    return 0;
+  });
 
   // --- İŞLEM GEÇMİŞİ (AUDIT TRAIL) LİSTESİ ---
   const tumIslemGecmisi = [
@@ -940,7 +958,7 @@ function App() {
               </div>
             </div>
 
-            {/* ARAMA */}
+            {/* ARAMA VE GENEL FİLTRELEME */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
               <h2 className="text-lg font-semibold">Son İşlem Kayıtları</h2>
               <input
@@ -952,7 +970,21 @@ function App() {
 
             {/* GELİR LİSTESİ */}
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
-              <h2 className="text-md font-semibold">Kasa Gelir Listesi</h2>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 className="text-md font-semibold">Kasa Gelir Listesi</h2>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
+                  <select
+                    value={gelirSiralama} onChange={(e) => setGelirSiralama(e.target.value)}
+                    className={`border ${inputBg} rounded-lg p-1.5 text-xs outline-none cursor-pointer`}
+                  >
+                    <option value="yeni" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Yeni Tarih</option>
+                    <option value="eski" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Eski Tarih</option>
+                    <option value="tutar-azalan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Yüksekten Düşüğe)</option>
+                    <option value="tutar-artan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Düşükten Yükseğe)</option>
+                  </select>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -965,10 +997,10 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
-                    {islemIcinGelirler.length === 0 ? (
+                    {siralanmisGelirler.length === 0 ? (
                       <tr><td colSpan="5" className="py-4 text-center text-slate-500">Gelir kaydı bulunamadı.</td></tr>
                     ) : (
-                      islemIcinGelirler.map((item) => (
+                      siralanmisGelirler.map((item) => (
                         <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium">{item.kaynak}</td>
@@ -988,7 +1020,21 @@ function App() {
 
             {/* GİDER LİSTESİ */}
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
-              <h2 className="text-md font-semibold">Kasa Gider Listesi</h2>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 className="text-md font-semibold">Kasa Gider Listesi</h2>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
+                  <select
+                    value={giderSiralama} onChange={(e) => setGiderSiralama(e.target.value)}
+                    className={`border ${inputBg} rounded-lg p-1.5 text-xs outline-none cursor-pointer`}
+                  >
+                    <option value="yeni" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Yeni Tarih</option>
+                    <option value="eski" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Eski Tarih</option>
+                    <option value="tutar-azalan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Yüksekten Düşüğe)</option>
+                    <option value="tutar-artan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Düşükten Yükseğe)</option>
+                  </select>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -1002,10 +1048,10 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
-                    {islemIcinGiderler.length === 0 ? (
+                    {siralanmisGiderler.length === 0 ? (
                       <tr><td colSpan="6" className="py-4 text-center text-slate-500">Kayıt bulunamadı.</td></tr>
                     ) : (
-                      islemIcinGiderler.map((item) => (
+                      siralanmisGiderler.map((item) => (
                         <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium">{item.kimeOdendi}</td>
