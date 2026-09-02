@@ -931,83 +931,82 @@ function App() {
               </div>
 
               <div className="space-y-3">
-                {Object.entries(aylikRapor).length === 0 ? (
-                  <p className="text-center text-slate-400 py-4">Rapor verisi bulunmuyor.</p>
+                {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
+                  <p className="text-center text-slate-400 py-4">İşlem kaydı bulunan ay bulunmuyor.</p>
                 ) : (
-                  Object.entries(aylikRapor).map(([ayYil, veri]) => {
-                    const netDurum = veri.gelir - veri.gider;
-                    const isOpen = secilenAy === ayYil;
-                    // Günlük detayları tarihe göre (eskiden yeniye veya yeninden eskiye) sıralayalım
-                    const siraliDetaylar = [...veri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+                  Object.entries(aylikRapor)
+                    .filter(([_, veri]) => veri.detaylar.length > 0) // Sadece içinde işlem olan ayları göster
+                    .map(([ayYil, veri]) => {
+                      const netDurum = veri.gelir - veri.gider;
+                      const isOpen = secilenAy === ayYil;
+                      const siraliDetaylar = [...veri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
 
-                    return (
-                      <div key={ayYil} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm transition">
-                        {/* Ay Satırı (Tıklanabilir Başlık) */}
-                        <div 
-                          onClick={() => setSecilenAy(isOpen ? null : ayYil)}
-                          className="bg-slate-50 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-slate-800 text-base capitalize">{ayYil}</span>
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                              {veri.detaylar.length} İşlem
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-6 text-sm">
-                            <span className="text-emerald-600 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
-                            <span className="text-red-600 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
-                            <span className={`font-bold ${netDurum >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                              Net: {netDurum.toLocaleString('tr-TR')} TL
-                            </span>
-                            <span className="text-slate-400 text-xs font-bold">{isOpen ? '▲ Kapat' : '▼ Detay'}</span>
-                          </div>
-                        </div>
-
-                        {/* Seçilen Ayın Açılır Detay Paneli */}
-                        {isOpen && (
-                          <div className="p-4 bg-white border-t border-slate-200 space-y-4">
-                            {/* Üst Kısımda O Ayın Özeti */}
-                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center text-xs text-slate-600">
-                              <span>Rapor Dönemi: <strong className="text-slate-800 uppercase">{ayYil}</strong></span>
-                              <span>Toplam İşlem Hacmi: <strong>{veri.detaylar.length} adet</strong></span>
+                      return (
+                        <div key={ayYil} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm transition">
+                          {/* Ay Satırı (Tıklanabilir Başlık) */}
+                          <div 
+                            onClick={() => setSecilenAy(isOpen ? null : ayYil)}
+                            className="bg-slate-50 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-slate-800 text-base capitalize">{ayYil}</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                {veri.detaylar.length} İşlem
+                              </span>
                             </div>
+                            <div className="flex items-center gap-6 text-sm">
+                              <span className="text-emerald-600 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
+                              <span className="text-red-600 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
+                              <span className={`font-bold ${netDurum >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                Net: {netDurum.toLocaleString('tr-TR')} TL
+                              </span>
+                              <span className="text-slate-400 text-xs font-bold">{isOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                            </div>
+                          </div>
 
-                            {/* Günlük Hareketlerin Alt Alta Sıralandığı Tablo */}
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
-                                <thead>
-                                  <tr className="border-b border-slate-100 text-slate-400 text-xs">
-                                    <th className="pb-2 font-medium">Tarih</th>
-                                    <th className="pb-2 font-medium">İşlem Türü</th>
-                                    <th className="pb-2 font-medium">Kaynak / Firma</th>
-                                    <th className="pb-2 font-medium">Kategori / Açıklama</th>
-                                    <th className="pb-2 font-medium text-right">Tutar</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
-                                  {siraliDetaylar.map((item, index) => (
-                                    <tr key={index} className="hover:bg-slate-50/50">
-                                      <td className="py-2.5 text-xs text-slate-500">{new Date(item.tarih).toLocaleDateString()}</td>
-                                      <td className="py-2.5">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                          {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
-                                        </span>
-                                      </td>
-                                      <td className="py-2.5 font-medium text-slate-800">{item.kaynak || item.kimeOdendi}</td>
-                                      <td className="py-2.5 text-xs text-slate-500">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
-                                      <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                        {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
-                                      </td>
+                          {/* Seçilen Ayın Açılır Detay Paneli */}
+                          {isOpen && (
+                            <div className="p-4 bg-white border-t border-slate-200 space-y-4">
+                              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center text-xs text-slate-600">
+                                <span>Rapor Dönemi: <strong className="text-slate-800 uppercase">{ayYil}</strong></span>
+                                <span>Toplam İşlem Hacmi: <strong>{veri.detaylar.length} adet</strong></span>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 text-slate-400 text-xs">
+                                      <th className="pb-2 font-medium">Tarih</th>
+                                      <th className="pb-2 font-medium">İşlem Türü</th>
+                                      <th className="pb-2 font-medium">Kaynak / Firma</th>
+                                      <th className="pb-2 font-medium">Kategori / Açıklama</th>
+                                      <th className="pb-2 font-medium text-right">Tutar</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                                    {siraliDetaylar.map((item, index) => (
+                                      <tr key={index} className="hover:bg-slate-50/50">
+                                        <td className="py-2.5 text-xs text-slate-500">{new Date(item.tarih).toLocaleDateString()}</td>
+                                        <td className="py-2.5">
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                            {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 font-medium text-slate-800">{item.kaynak || item.kimeOdendi}</td>
+                                        <td className="py-2.5 text-xs text-slate-500">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
+                                        <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                          {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                          )}
+                        </div>
+                      );
+                    })
                 )}
               </div>
             </div>
