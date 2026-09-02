@@ -647,7 +647,17 @@ function App() {
     }
   };
 
-  // --- BİRLEŞTİRİLMİŞ TEK KASA HAREKETLERİ LİSTESİ ---
+  // --- BUGÜNÜN TARİHİNİ KONTROL ETME YARDIMCISI ---
+  const bugunMu = (tarihStr) => {
+    if (!tarihStr) return false;
+    const d = new Date(tarihStr);
+    const bugun = new Date();
+    return d.getDate() === bugun.getDate() &&
+           d.getMonth() === bugun.getMonth() &&
+           d.getFullYear() === bugun.getFullYear();
+  };
+
+  // --- BİRLEŞTİRİLMİŞ TEK KASA HAREKETLERİ LİSTESİ (SADECE BUGÜN YAZILANLAR) ---
   const tumKasaListesi = [
     ...gelirler.map(g => ({
       id: `gelir-${g.id}`,
@@ -671,7 +681,7 @@ function App() {
       tutar: gi.tutar,
       orijinalVeri: gi
     }))
-  ];
+  ].filter(item => bugunMu(item.tarih));
 
   const filtrelenmisKasaListesi = tumKasaListesi.filter(item => 
     (item.isimVeyaKaynak || '').toLowerCase().includes(islemArama.toLowerCase()) ||
@@ -1002,7 +1012,7 @@ function App() {
 
             {/* ARAMA VE GENEL FİLTRELEME */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
-              <h2 className="text-lg font-semibold">Tüm Kasa Hareketleri</h2>
+              <h2 className="text-lg font-semibold">Bugünün Kasa Hareketleri</h2>
               <input
                 type="text" placeholder="Tablolarda ara..."
                 value={islemArama} onChange={(e) => setIslemArama(e.target.value)}
@@ -1013,7 +1023,7 @@ function App() {
             {/* TEK BİRLEŞTİRİLMİŞ KASA LİSTESİ TABLOSU */}
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-md font-semibold">Gelir & Gider Hareketleri Tablosu</h2>
+                <h2 className="text-md font-semibold">Gelir & Gider Hareketleri Tablosu (Bugün)</h2>
                 <div className="flex items-center gap-2 text-xs">
                   <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
                   <select
@@ -1042,7 +1052,7 @@ function App() {
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {siralanmisKasaListesi.length === 0 ? (
-                      <tr><td colSpan="7" className="py-4 text-center text-slate-500">Kayıt bulunamadı.</td></tr>
+                      <tr><td colSpan="7" className="py-4 text-center text-slate-500">Bugüne ait işlem kaydı bulunmuyor.</td></tr>
                     ) : (
                       siralanmisKasaListesi.map((item) => (
                         <tr key={item.id} className={tableRowHover}>
