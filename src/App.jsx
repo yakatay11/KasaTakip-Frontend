@@ -6,7 +6,10 @@ import 'jspdf-autotable'
 const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
 function App() {
-  const [girisYapanKullanici, setGirisYapanKullanici] = useState(null);
+  const [girisYapanKullanici, setGirisYapanKullanici] = useState(() => {
+    const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [loginForm, setLoginForm] = useState({ kullaniciAdi: '', sifre: '' });
   const [yukleniyor, setYukleniyor] = useState(false);
 
@@ -253,7 +256,9 @@ function App() {
       }
 
       if (response.ok) {
-        setGirisYapanKullanici({ id: data.id, adSoyad: data.adSoyad, rol: data.rol });
+        const userData = { id: data.id, adSoyad: data.adSoyad, rol: data.rol };
+        setGirisYapanKullanici(userData);
+        localStorage.setItem('kasa_girisYapanKullanici', JSON.stringify(userData));
         if (data.rol === 'Personel') setAktifSekme('talepler');
         else setAktifSekme('islemler');
       } else { 
@@ -269,6 +274,7 @@ function App() {
 
   const cikisYap = () => {
     setGirisYapanKullanici(null);
+    localStorage.removeItem('kasa_girisYapanKullanici');
     setLoginForm({ kullaniciAdi: '', sifre: '' });
   };
 
@@ -500,7 +506,7 @@ function App() {
   const raporIcinGelirler = gelirler.filter(item => {
     const metinUyumu = (item.kaynak || '').toLowerCase().includes(raporArama.toLowerCase()) ||
                        (item.aciklama || '').toLowerCase().includes(raporArama.toLowerCase());
-    const kategoriUyumu = raporKategori ? false : true; // Gider kategorisi seçiliyse gelirleri gizle
+    const kategoriUyumu = raporKategori ? false : true; 
     return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
   });
 
@@ -523,7 +529,6 @@ function App() {
     aylikRapor[ayYil].detaylar.push(item);
   });
 
-  // Üst Bilgi Kartları İçin Genel Toplamlar (Filtresiz)
   const toplamGelir = gelirler.reduce((toplam, item) => toplam + item.tutar, 0);
   const toplamGider = giderler.reduce((toplam, item) => toplam + item.tutar, 0);
   const netBakiye = toplamGelir - toplamGider;
