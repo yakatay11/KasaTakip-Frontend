@@ -362,7 +362,7 @@ function App() {
     setYeniKullaniciForm({
       adSoyad: kul.adSoyad,
       kullaniciAdi: kul.kullaniciAdi,
-      sifre: '', // Boş bırakılabilir veya güncellenebilir
+      sifre: '',
       rol: kul.rol
     });
   };
@@ -609,6 +609,13 @@ function App() {
     (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
   );
 
+  // --- İŞLEM GEÇMİŞİ (AUDIT TRAIL) LİSTESİ ---
+  const tumIslemGecmisi = [
+    ...gelirler.map(g => ({ id: `gelir-${g.id}`, tur: 'Gelir Ekleme', aciklama: `${g.kaynak} - ${g.aciklama || '-'}`, tutar: g.tutar, tip: 'gelir', tarih: g.tarih })),
+    ...giderler.map(gi => ({ id: `gider-${gi.id}`, tur: 'Gider Ekleme', aciklama: `${gi.kimeOdendi} (${gi.kategori}) - ${gi.aciklama || '-'}`, tutar: gi.tutar, tip: 'gider', tarih: gi.tarih })),
+    ...giderTalepleri.map(t => ({ id: `talep-${t.id}`, tur: `Talep (${t.durum})`, aciklama: `${t.kimeOdenecek} (${t.kategori}) - ${t.aciklama || '-'}`, tutar: t.tutar, tip: 'talep', tarih: t.tarih }))
+  ].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
   // --- RAPORLAR İÇİN DETAYLI FİLTRELEME ---
   const raporTarihFiltresi = (tarih) => {
     if (!raporBaslangic && !raporBitis) return true;
@@ -768,6 +775,15 @@ function App() {
               className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'raporlar' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
             >
               Günlük & Aylık Raporlar
+            </button>
+          )}
+
+          {girisYapanKullanici.rol !== 'Personel' && (
+            <button
+              onClick={() => setAktifSekme('gecmis')}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'gecmis' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            >
+              İşlem Geçmişi
             </button>
           )}
 
@@ -1176,6 +1192,40 @@ function App() {
                     })
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {aktifSekme === 'gecmis' && girisYapanKullanici.rol !== 'Personel' && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
+            <h2 className="text-lg font-semibold text-slate-700">Tüm Sistem İşlem Geçmişi (Audit Trail)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                    <th className="pb-3 font-medium">Tarih</th>
+                    <th className="pb-3 font-medium">İşlem Türü</th>
+                    <th className="pb-3 font-medium">Detay</th>
+                    <th className="pb-3 font-medium text-right">Tutar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                  {tumIslemGecmisi.length === 0 ? (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-400">Geçmiş işlem bulunmuyor.</td></tr>
+                  ) : (
+                    tumIslemGecmisi.map((islem) => (
+                      <tr key={islem.id} className="hover:bg-slate-50/50">
+                        <td className="py-3 text-xs text-slate-500">{new Date(islem.tarih).toLocaleString('tr-TR')}</td>
+                        <td className="py-3 font-medium text-slate-800">{islem.tur}</td>
+                        <td className="py-3 text-sm">{islem.aciklama}</td>
+                        <td className={`py-3 text-right font-semibold ${islem.tip === 'gelir' ? 'text-emerald-600' : islem.tip === 'gider' ? 'text-red-600' : 'text-amber-600'}`}>
+                          {islem.tip === 'gelir' ? '+' : islem.tip === 'gider' ? '-' : ''}{islem.tutar.toLocaleString('tr-TR')} TL
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
