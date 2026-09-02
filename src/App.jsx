@@ -6,6 +6,18 @@ import { Toaster, toast } from 'react-hot-toast'
 
 const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
+// --- SABİT KATEGORİ LİSTESİ ---
+const SABIT_KATEGORILER = [
+  'Fatura (Elektrik, Su, Doğalgaz, İnternet)',
+  'Kira',
+  'Ofis Malzemeleri',
+  'Ulaşım ve Akaryakıt',
+  'Maaş ve Personel',
+  'Yemek ve İkram',
+  'Bakım ve Onarım',
+  'Diğer'
+];
+
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(() => {
     const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
@@ -50,7 +62,7 @@ function App() {
   // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
   const [giderForm, setGiderForm] = useState(() => {
     const saved = localStorage.getItem('kasa_giderForm');
-    return saved ? JSON.parse(saved) : { kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' };
+    return saved ? JSON.parse(saved) : { kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' };
   });
   const [giderTaslakId, setGiderTaslakId] = useState(() => {
     const savedId = localStorage.getItem('kasa_giderTaslakId');
@@ -68,7 +80,7 @@ function App() {
 
   const [talepForm, setTalepForm] = useState(() => {
     const saved = localStorage.getItem('kasa_talepForm');
-    return saved ? JSON.parse(saved) : { kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' };
+    return saved ? JSON.parse(saved) : { kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' };
   });
   const [talepTaslakId, setTalepTaslakId] = useState(() => {
     const savedId = localStorage.getItem('kasa_talepTaslakId');
@@ -99,7 +111,7 @@ function App() {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               kimeOdendi: giderForm.kimeOdenecek || '-',
-              kategori: giderForm.kategori || '-',
+              kategori: giderForm.kategori || 'Diğer',
               tutar: parseFloat(giderForm.tutar) || 0,
               aciklama: giderForm.aciklama || 'Taslak Kayıt',
               tarih: new Date().toISOString(),
@@ -115,7 +127,7 @@ function App() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 kimeOdendi: giderForm.kimeOdenecek || '-',
-                kategori: giderForm.kategori || '-',
+                kategori: giderForm.kategori || 'Diğer',
                 tutar: parseFloat(giderForm.tutar) || 0,
                 aciklama: giderForm.aciklama || 'Taslak Kayıt',
                 tarih: new Date().toISOString(),
@@ -197,7 +209,7 @@ function App() {
             body: JSON.stringify({
               talepEdenPersonelId: girisYapanKullanici.id,
               kimeOdenecek: talepForm.kimeOdenecek || '-',
-              kategori: talepForm.kategori || '-',
+              kategori: talepForm.kategori || 'Diğer',
               tutar: parseFloat(talepForm.tutar) || 0,
               aciklama: talepForm.aciklama || 'Taslak Kayıt',
               tarih: new Date().toISOString()
@@ -213,7 +225,7 @@ function App() {
               body: JSON.stringify({
                 talepEdenPersonelId: girisYapanKullanici.id,
                 kimeOdenecek: talepForm.kimeOdenecek || '-',
-                kategori: talepForm.kategori || '-',
+                kategori: talepForm.kategori || 'Diğer',
                 tutar: parseFloat(talepForm.tutar) || 0,
                 aciklama: talepForm.aciklama || 'Taslak Kayıt',
                 tarih: new Date().toISOString()
@@ -404,7 +416,7 @@ function App() {
         await fetch(`${API_URL}/Gider/${duzenlenenGiderId}?rol=${userRol}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
+            kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
             tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
             tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
           })
@@ -416,7 +428,7 @@ function App() {
           await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
               tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
               tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
             })
@@ -426,7 +438,7 @@ function App() {
           await fetch(`${API_URL}/Gider`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori,
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
               tutar: parseFloat(giderForm.tutar), aciklama: giderForm.aciklama,
               tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
             })
@@ -435,7 +447,7 @@ function App() {
         }
       }
 
-      setGiderForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
+      setGiderForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
       setGiderTaslakId(null);
       localStorage.removeItem('kasa_giderForm');
       localStorage.removeItem('kasa_giderTaslakId');
@@ -448,7 +460,7 @@ function App() {
 
   const giderDuzenleBaslat = (item) => {
     setDuzenlenenGiderId(item.id);
-    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori, tutar: item.tutar, aciklama: item.aciklama || '' });
+    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, aciklama: item.aciklama || '' });
   };
 
   const giderSil = async (id) => {
@@ -459,7 +471,7 @@ function App() {
       if (response.ok) {
         if (id === giderTaslakId) {
            setGiderTaslakId(null);
-           setGiderForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
+           setGiderForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
            localStorage.removeItem('kasa_giderForm');
            localStorage.removeItem('kasa_giderTaslakId');
         }
@@ -561,7 +573,7 @@ function App() {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             talepEdenPersonelId: girisYapanKullanici.id,
-            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori,
+            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
             tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
             tarih: new Date().toISOString()
           })
@@ -571,14 +583,14 @@ function App() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             talepEdenPersonelId: girisYapanKullanici.id,
-            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori,
+            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
             tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
             tarih: new Date().toISOString()
           })
         });
       }
 
-      setTalepForm({ kimeOdenecek: '', kategori: '', tutar: '', aciklama: '' });
+      setTalepForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
       setTalepTaslakId(null);
       localStorage.removeItem('kasa_talepForm');
       localStorage.removeItem('kasa_talepTaslakId');
@@ -602,9 +614,6 @@ function App() {
       toast.error("Onaylama başarısız.");
     }
   };
-
-  // --- Benzersiz Gider Kategorilerini Çıkarma ---
-  const giderKategorileri = [...new Set(giderler.map(g => g.kategori).filter(Boolean))];
 
   // --- İŞLEMLER İÇİN YEREL FİLTRELEME ---
   const islemIcinGelirler = gelirler.filter(item => 
@@ -899,11 +908,14 @@ function App() {
                     value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })}
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
-                  <input
-                    type="text" placeholder="Kategori (Örn: Fatura, Ofis)"
+                  <select
                     value={giderForm.kategori} onChange={(e) => setGiderForm({ ...giderForm, kategori: e.target.value })}
-                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
-                  />
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  >
+                    {SABIT_KATEGORILER.map((kat, idx) => (
+                      <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
+                    ))}
+                  </select>
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })}
@@ -919,7 +931,7 @@ function App() {
                       {duzenlenenGiderId ? 'Gideri Güncelle' : 'Gideri Kaydet & Onayla'}
                     </button>
                     {duzenlenenGiderId && (
-                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: '', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                         İptal
                       </button>
                     )}
@@ -1026,11 +1038,14 @@ function App() {
                     value={talepForm.kimeOdenecek} onChange={(e) => setTalepForm({ ...talepForm, kimeOdenecek: e.target.value })}
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
-                  <input
-                    type="text" placeholder="Kategori"
+                  <select
                     value={talepForm.kategori} onChange={(e) => setTalepForm({ ...talepForm, kategori: e.target.value })}
-                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
-                  />
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  >
+                    {SABIT_KATEGORILER.map((kat, idx) => (
+                      <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
+                    ))}
+                  </select>
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })}
@@ -1124,8 +1139,8 @@ function App() {
                   className={`border ${inputBg} rounded-lg p-1.5 text-sm outline-none cursor-pointer`}
                 >
                   <option value="">Tüm Kategoriler</option>
-                  {giderKategorileri.map((kat, idx) => (
-                    <option key={idx} value={kat}>{kat}</option>
+                  {SABIT_KATEGORILER.map((kat, idx) => (
+                    <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
                   ))}
                 </select>
                 <div className={`flex items-center gap-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
