@@ -649,6 +649,16 @@ function App() {
     return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
   });
 
+  // --- AKILLI ÖZET HESAPLAMALARI ---
+  const raporToplamGelir = raporIcinGelirler.reduce((acc, i) => acc + i.tutar, 0);
+  const raporToplamGider = raporIcinGiderler.reduce((acc, i) => acc + i.tutar, 0);
+  const kategoriHarcamalari = raporIcinGiderler.reduce((acc, item) => {
+    const cat = item.kategori || 'Diğer';
+    acc[cat] = (acc[cat] || 0) + item.tutar;
+    return acc;
+  }, {});
+  const enYuksekKategori = Object.entries(kategoriHarcamalari).reduce((max, curr) => curr[1] > (max[1] || 0) ? curr : max, [null, 0]);
+
   // --- RAPORLARI OLUŞTURMA ---
   const aylikRapor = {};
   [...raporIcinGelirler.map(i => ({ ...i, tip: 'gelir' })), ...raporIcinGiderler.map(i => ({ ...i, tip: 'gider' }))].forEach(item => {
@@ -1089,6 +1099,19 @@ function App() {
         {/* RAPORLAR SEKMESİ */}
         {aktifSekme === 'raporlar' && girisYapanKullanici.rol !== 'Personel' && (
           <div className="space-y-6">
+            
+            {/* AKILLI ÖZET KARTI */}
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
+              <div>
+                <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">💡 Akıllı Finansal Özet</h3>
+                <p className={`text-sm mt-1 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {enYuksekKategori[0] ? `Bu dönem en çok harcama yapılan kategori: ${enYuksekKategori[0]} (${enYuksekKategori[1].toLocaleString('tr-TR')} TL).` : 'Bu dönemde henüz gider kaydı bulunmuyor.'}
+                  {raporToplamGelir > 0 && ` Gelirlerin gideri karşılama oranı: %${((raporToplamGelir / (raporToplamGider || 1)) * 100).toFixed(0)}.`}
+                </p>
+              </div>
+            </div>
+
+            {/* FİLTRELEME ÇUBUĞU */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4 items-center justify-between transition-colors`}>
               <input
                 type="text" placeholder="Raporlarda ara..." 
