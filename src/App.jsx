@@ -6,18 +6,6 @@ import { Toaster, toast } from 'react-hot-toast'
 
 const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
-// --- SABİT KATEGORİ LİSTESİ ---
-const SABIT_KATEGORILER = [
-  'Fatura (Elektrik, Su, Doğalgaz, İnternet)',
-  'Kira',
-  'Ofis Malzemeleri',
-  'Ulaşım ve Akaryakıt',
-  'Maaş ve Personel',
-  'Yemek ve İkram',
-  'Bakım ve Onarım',
-  'Diğer'
-];
-
 function App() {
   const [girisYapanKullanici, setGirisYapanKullanici] = useState(() => {
     const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
@@ -35,6 +23,26 @@ function App() {
     localStorage.setItem('kasa_darkMode', darkMode);
   }, [darkMode]);
 
+  // --- DİNAMİK KATEGORİ LİSTESİ ---
+  const [kategoriler, setKategoriler] = useState(() => {
+    const saved = localStorage.getItem('kasa_kategoriler');
+    return saved ? JSON.parse(saved) : [
+      'Fatura (Elektrik, Su, Doğalgaz, İnternet)',
+      'Kira',
+      'Ofis Malzemeleri',
+      'Ulaşım ve Akaryakıt',
+      'Maaş ve Personel',
+      'Yemek ve İkram',
+      'Bakım ve Onarım',
+      'Diğer'
+    ];
+  });
+  const [yeniKategoriAdi, setYeniKategoriAdi] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('kasa_kategoriler', JSON.stringify(kategoriler));
+  }, [kategoriler]);
+
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
@@ -49,10 +57,9 @@ function App() {
   const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
   const [duzenlenenKullaniciId, setDuzenlenenKullaniciId] = useState(null);
 
-  // --- İŞLEMLER SEKME ARAMASI VE SIRALAMA ---
+  // --- İŞLEMLER SEKME ARAMASI VE TEK TABLO SIRALAMA ---
   const [islemArama, setIslemArama] = useState('');
-  const [gelirSiralama, setGelirSiralama] = useState('yeni');
-  const [giderSiralama, setGiderSiralama] = useState('yeni');
+  const [kasaSiralama, setKasaSiralama] = useState('yeni');
 
   // --- RAPORLAR FİLTRELEME STATE'LERİ ---
   const [raporArama, setRaporArama] = useState('');
@@ -407,6 +414,29 @@ function App() {
     }
   };
 
+  // --- KATEGORİ EKLEME (YÖNETİCİ) ---
+  const yeniKategoriEkle = (e) => {
+    e.preventDefault();
+    if (!yeniKategoriAdi.trim()) return;
+    if (kategoriler.includes(yeniKategoriAdi.trim())) {
+      toast.error("Bu kategori zaten mevcut!");
+      return;
+    }
+    setKategoriler([...kategoriler, yeniKategoriAdi.trim()]);
+    toast.success("Yeni kategori başarıyla eklendi.");
+    setYeniKategoriAdi('');
+  };
+
+  const kategoriSil = (kat) => {
+    if (kategoriler.length <= 1) {
+      toast.error("En az bir kategori kalmalıdır.");
+      return;
+    }
+    if (!window.confirm(`"${kat}" kategorisini silmek istediğinize emin misiniz?`)) return;
+    setKategoriler(kategoriler.filter(k => k !== kat));
+    toast.success("Kategori silindi.");
+  };
+
   // --- GİDER EKLE / GÜNCELLE ---
   const giderEkle = async (e) => {
     e.preventDefault();
@@ -449,7 +479,7 @@ function App() {
         }
       }
 
-      setGiderForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
+      setGiderForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: '' });
       setGiderTaslakId(null);
       localStorage.removeItem('kasa_giderForm');
       localStorage.removeItem('kasa_giderTaslakId');
@@ -473,7 +503,7 @@ function App() {
       if (response.ok) {
         if (id === giderTaslakId) {
            setGiderTaslakId(null);
-           setGiderForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
+           setGiderForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: '' });
            localStorage.removeItem('kasa_giderForm');
            localStorage.removeItem('kasa_giderTaslakId');
         }
@@ -592,7 +622,7 @@ function App() {
         });
       }
 
-      setTalepForm({ kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: '' });
+      setTalepForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: '' });
       setTalepTaslakId(null);
       localStorage.removeItem('kasa_talepForm');
       localStorage.removeItem('kasa_talepTaslakId');
@@ -617,31 +647,43 @@ function App() {
     }
   };
 
-  // --- İŞLEMLER İÇİN YEREL FİLTRELEME VE SIRALAMA ---
-  const filtrelenmisGelirler = gelirler.filter(item => 
-    (item.kaynak || '').toLowerCase().includes(islemArama.toLowerCase()) ||
-    (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
-  );
+  // --- BİRLEŞTİRİLMİŞ TEK KASA HAREKETLERİ LİSTESİ ---
+  const tumKasaListesi = [
+    ...gelirler.map(g => ({
+      id: `gelir-${g.id}`,
+      gercekId: g.id,
+      tip: 'gelir',
+      tarih: g.tarih,
+      isimVeyaKaynak: g.kaynak,
+      kategori: '-',
+      aciklama: g.aciklama,
+      tutar: g.tutar,
+      orijinalVeri: g
+    })),
+    ...giderler.map(gi => ({
+      id: `gider-${gi.id}`,
+      gercekId: gi.id,
+      tip: 'gider',
+      tarih: gi.tarih,
+      isimVeyaKaynak: gi.kimeOdendi,
+      kategori: gi.kategori || 'Diğer',
+      aciklama: gi.aciklama,
+      tutar: gi.tutar,
+      orijinalVeri: gi
+    }))
+  ];
 
-  const siralanmisGelirler = [...filtrelenmisGelirler].sort((a, b) => {
-    if (gelirSiralama === 'yeni') return new Date(b.tarih) - new Date(a.tarih);
-    if (gelirSiralama === 'eski') return new Date(a.tarih) - new Date(b.tarih);
-    if (gelirSiralama === 'tutar-azalan') return b.tutar - a.tutar;
-    if (gelirSiralama === 'tutar-artan') return a.tutar - b.tutar;
-    return 0;
-  });
-  
-  const filtrelenmisGiderler = giderler.filter(item => 
-    (item.kimeOdendi || '').toLowerCase().includes(islemArama.toLowerCase()) ||
+  const filtrelenmisKasaListesi = tumKasaListesi.filter(item => 
+    (item.isimVeyaKaynak || '').toLowerCase().includes(islemArama.toLowerCase()) ||
     (item.kategori || '').toLowerCase().includes(islemArama.toLowerCase()) ||
     (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
   );
 
-  const siralanmisGiderler = [...filtrelenmisGiderler].sort((a, b) => {
-    if (giderSiralama === 'yeni') return new Date(b.tarih) - new Date(a.tarih);
-    if (giderSiralama === 'eski') return new Date(a.tarih) - new Date(b.tarih);
-    if (giderSiralama === 'tutar-azalan') return b.tutar - a.tutar;
-    if (giderSiralama === 'tutar-artan') return a.tutar - b.tutar;
+  const siralanmisKasaListesi = [...filtrelenmisKasaListesi].sort((a, b) => {
+    if (kasaSiralama === 'yeni') return new Date(b.tarih) - new Date(a.tarih);
+    if (kasaSiralama === 'eski') return new Date(a.tarih) - new Date(b.tarih);
+    if (kasaSiralama === 'tutar-azalan') return b.tutar - a.tutar;
+    if (kasaSiralama === 'tutar-artan') return a.tutar - b.tutar;
     return 0;
   });
 
@@ -854,7 +896,7 @@ function App() {
               onClick={() => setAktifSekme('kullanicilar')}
               className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'kullanicilar' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
             >
-              Kullanıcı Yönetimi
+              Kullanıcı & Kategori Yönetimi
             </button>
           )}
         </div>
@@ -930,7 +972,7 @@ function App() {
                     value={giderForm.kategori} onChange={(e) => setGiderForm({ ...giderForm, kategori: e.target.value })}
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   >
-                    {SABIT_KATEGORILER.map((kat, idx) => (
+                    {kategoriler.map((kat, idx) => (
                       <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
                     ))}
                   </select>
@@ -949,7 +991,7 @@ function App() {
                       {duzenlenenGiderId ? 'Gideri Güncelle' : 'Gideri Kaydet & Onayla'}
                     </button>
                     {duzenlenenGiderId && (
-                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                         İptal
                       </button>
                     )}
@@ -960,7 +1002,7 @@ function App() {
 
             {/* ARAMA VE GENEL FİLTRELEME */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
-              <h2 className="text-lg font-semibold">Son İşlem Kayıtları</h2>
+              <h2 className="text-lg font-semibold">Tüm Kasa Hareketleri</h2>
               <input
                 type="text" placeholder="Tablolarda ara..."
                 value={islemArama} onChange={(e) => setIslemArama(e.target.value)}
@@ -968,14 +1010,14 @@ function App() {
               />
             </div>
 
-            {/* GELİR LİSTESİ */}
+            {/* TEK BİRLEŞTİRİLMİŞ KASA LİSTESİ TABLOSU */}
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-md font-semibold">Kasa Gelir Listesi</h2>
+                <h2 className="text-md font-semibold">Gelir & Gider Hareketleri Tablosu</h2>
                 <div className="flex items-center gap-2 text-xs">
                   <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
                   <select
-                    value={gelirSiralama} onChange={(e) => setGelirSiralama(e.target.value)}
+                    value={kasaSiralama} onChange={(e) => setKasaSiralama(e.target.value)}
                     className={`border ${inputBg} rounded-lg p-1.5 text-xs outline-none cursor-pointer`}
                   >
                     <option value="yeni" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Yeni Tarih</option>
@@ -990,57 +1032,8 @@ function App() {
                   <thead>
                     <tr className={`border-b ${tableHeader} text-sm`}>
                       <th className="pb-3 font-medium">Tarih</th>
-                      <th className="pb-3 font-medium">Gelir Kaynağı</th>
-                      <th className="pb-3 font-medium">Açıklama</th>
-                      <th className="pb-3 font-medium">Tutar</th>
-                      <th className="pb-3 font-medium text-right">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${tableDivider} text-sm`}>
-                    {siralanmisGelirler.length === 0 ? (
-                      <tr><td colSpan="5" className="py-4 text-center text-slate-500">Gelir kaydı bulunamadı.</td></tr>
-                    ) : (
-                      siralanmisGelirler.map((item) => (
-                        <tr key={item.id} className={tableRowHover}>
-                          <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
-                          <td className="py-3 font-medium">{item.kaynak}</td>
-                          <td className="py-3">{item.aciklama}</td>
-                          <td className="py-3 font-semibold text-emerald-500">+{item.tutar.toLocaleString('tr-TR')} TL</td>
-                          <td className="py-3 text-right space-x-2">
-                            <button onClick={() => gelirDuzenleBaslat(item)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
-                            <button onClick={() => gelirSil(item.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* GİDER LİSTESİ */}
-            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-md font-semibold">Kasa Gider Listesi</h2>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
-                  <select
-                    value={giderSiralama} onChange={(e) => setGiderSiralama(e.target.value)}
-                    className={`border ${inputBg} rounded-lg p-1.5 text-xs outline-none cursor-pointer`}
-                  >
-                    <option value="yeni" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Yeni Tarih</option>
-                    <option value="eski" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Eski Tarih</option>
-                    <option value="tutar-azalan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Yüksekten Düşüğe)</option>
-                    <option value="tutar-artan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Düşükten Yükseğe)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className={`border-b ${tableHeader} text-sm`}>
-                      <th className="pb-3 font-medium">Tarih</th>
-                      <th className="pb-3 font-medium">Firma / Ödenen</th>
+                      <th className="pb-3 font-medium">Tür</th>
+                      <th className="pb-3 font-medium">Kaynak / Firma</th>
                       <th className="pb-3 font-medium">Kategori</th>
                       <th className="pb-3 font-medium">Açıklama</th>
                       <th className="pb-3 font-medium">Tutar</th>
@@ -1048,19 +1041,39 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
-                    {siralanmisGiderler.length === 0 ? (
-                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Kayıt bulunamadı.</td></tr>
+                    {siralanmisKasaListesi.length === 0 ? (
+                      <tr><td colSpan="7" className="py-4 text-center text-slate-500">Kayıt bulunamadı.</td></tr>
                     ) : (
-                      siralanmisGiderler.map((item) => (
+                      siralanmisKasaListesi.map((item) => (
                         <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
-                          <td className="py-3 font-medium">{item.kimeOdendi}</td>
-                          <td className="py-3"><span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs`}>{item.kategori}</span></td>
-                          <td className="py-3">{item.aciklama}</td>
-                          <td className="py-3 font-semibold text-red-500">-{item.tutar.toLocaleString('tr-TR')} TL</td>
+                          <td className="py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                              {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                            </span>
+                          </td>
+                          <td className="py-3 font-medium">{item.isimVeyaKaynak}</td>
+                          <td className="py-3">
+                            {item.tip === 'gider' ? (
+                              <span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs`}>{item.kategori}</span>
+                            ) : '-'}
+                          </td>
+                          <td className="py-3 text-xs">{item.aciklama || '-'}</td>
+                          <td className={`py-3 font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                          </td>
                           <td className="py-3 text-right space-x-2">
-                            <button onClick={() => giderDuzenleBaslat(item)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
-                            <button onClick={() => giderSil(item.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                            {item.tip === 'gelir' ? (
+                              <>
+                                <button onClick={() => gelirDuzenleBaslat(item.orijinalVeri)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                                <button onClick={() => gelirSil(item.gercekId)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => giderDuzenleBaslat(item.orijinalVeri)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                                <button onClick={() => giderSil(item.gercekId)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -1088,7 +1101,7 @@ function App() {
                     value={talepForm.kategori} onChange={(e) => setTalepForm({ ...talepForm, kategori: e.target.value })}
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   >
-                    {SABIT_KATEGORILER.map((kat, idx) => (
+                    {kategoriler.map((kat, idx) => (
                       <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
                     ))}
                   </select>
@@ -1185,7 +1198,7 @@ function App() {
                   className={`border ${inputBg} rounded-lg p-1.5 text-sm outline-none cursor-pointer`}
                 >
                   <option value="">Tüm Kategoriler</option>
-                  {SABIT_KATEGORILER.map((kat, idx) => (
+                  {kategoriler.map((kat, idx) => (
                     <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
                   ))}
                 </select>
@@ -1340,7 +1353,7 @@ function App() {
           </div>
         )}
 
-        {/* KULLANICI YÖNETİMİ SEKMESİ */}
+        {/* KULLANICI & KATEGORİ YÖNETİMİ SEKMESİ */}
         {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol === 'Yonetici' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border h-fit space-y-6 transition-colors`}>
@@ -1390,6 +1403,31 @@ function App() {
                     )}
                   </div>
                 </form>
+              </div>
+
+              <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
+
+              {/* KATEGORİ EKLEME YÖNETİMİ */}
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Yeni Kategori Ekle</h2>
+                <form onSubmit={yeniKategoriEkle} className="space-y-4">
+                  <input
+                    type="text" placeholder="Kategori Adı"
+                    value={yeniKategoriAdi} onChange={(e) => setYeniKategoriAdi(e.target.value)}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
+                    Kategoriyi Kaydet
+                  </button>
+                </form>
+                <div className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                  {kategoriler.map((kat, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs p-1.5 rounded bg-slate-500/10">
+                      <span>{kat}</span>
+                      <button type="button" onClick={() => kategoriSil(kat)} className="text-red-500 font-bold hover:underline">Sil</button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
