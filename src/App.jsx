@@ -20,6 +20,14 @@ function App() {
   const [duzenlenenGelirId, setDuzenlenenGelirId] = useState(null);
   const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
 
+  // --- FİLTRELEME STATE'LERİ ---
+  const [aramaMetni, setAramaMetni] = useState('');
+  const [baslangicTarihi, setBaslangicTarihi] = useState('');
+  const [bitisTarihi, setBitisTarihi] = useState('');
+
+  // --- RAPOR AKORDİYON STATE'İ ---
+  const [secilenAy, setSecilenAy] = useState(null);
+
   // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
   const [giderForm, setGiderForm] = useState(() => {
     const saved = localStorage.getItem('kasa_giderForm');
@@ -49,7 +57,6 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-  const [aramaMetni, setAramaMetni] = useState('');
   const [aktifSekme, setAktifSekme] = useState('islemler');
 
   // --- LOCAL STORAGE YEDEKLEMELERİ ---
@@ -57,13 +64,12 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_gelirForm', JSON.stringify(gelirForm)), [gelirForm]);
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
-
   // ==========================================
   // 1. GİDER İÇİN OTOMATİK KAYIT (AUTO-SAVE)
   // ==========================================
   useEffect(() => {
     if (!girisYapanKullanici || girisYapanKullanici.rol === 'Personel') return;
-    if (duzenlenenGiderId) return; // Düzenleme modundayken taslak auto-save'i tetiklemesin
+    if (duzenlenenGiderId) return; 
     if (!giderForm.kimeOdenecek && !giderForm.tutar && !giderForm.kategori && !giderForm.aciklama) return;
 
     const timer = setTimeout(async () => {
@@ -115,7 +121,7 @@ function App() {
   // ==========================================
   useEffect(() => {
     if (!girisYapanKullanici || girisYapanKullanici.rol === 'Personel') return;
-    if (duzenlenenGelirId) return; // Düzenleme modundayken taslak auto-save'i tetiklemesin
+    if (duzenlenenGelirId) return; 
     if (!gelirForm.kaynak && !gelirForm.tutar && !gelirForm.aciklama) return;
 
     const timer = setTimeout(async () => {
@@ -253,7 +259,7 @@ function App() {
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      alert("Sunucuya bağlanırken bir hata oluştu. (Render sunucusu uyanıyor olabilir, lütfen tekrar deneyin)");
+      alert("Sunucuya bağlanırken bir hata oluştu.");
     } finally {
       setYukleniyor(false);
     }
@@ -474,9 +480,10 @@ function App() {
   [...gelirler.map(i => ({ ...i, tip: 'gelir' })), ...giderler.map(i => ({ ...i, tip: 'gider' }))].forEach(item => {
     const tarihObj = new Date(item.tarih);
     const ayYil = tarihObj.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
-    if (!aylikRapor[ayYil]) aylikRapor[ayYil] = { gelir: 0, gider: 0 };
+    if (!aylikRapor[ayYil]) aylikRapor[ayYil] = { gelir: 0, gider: 0, detaylar: [] };
     if (item.tip === 'gelir') aylikRapor[ayYil].gelir += item.tutar;
     else aylikRapor[ayYil].gider += item.tutar;
+    aylikRapor[ayYil].detaylar.push(item);
   });
 
   const raporlariArsivle = async () => {
@@ -515,11 +522,27 @@ function App() {
     doc.save("Aylik_Finansal_Rapor.pdf");
   };
 
-  const filtrelenmisGiderler = giderler.filter(item =>
-    (item.kimeOdendi || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
-    (item.kategori || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
-    (item.aciklama || '').toLowerCase().includes(aramaMetni.toLowerCase())
-  );
+  // --- TARİH VE METİN FİLTRELEME FONKSİYONLARI ---
+  const tarihFiltresiUygula = (itemTarih) => {
+    if (!baslangicTarihi && !bitisTarihi) return true;
+    const itemDate = new Date(itemTarih).toISOString().split('T')[0];
+    if (baslangicTarihi && itemDate < baslangicTarihi) return false;
+    if (bitisTarihi && itemDate > bitisTarihi) return false;
+    return true;
+  };
+
+  const filtrelenmisGelirler = gelirler.filter(item => {
+    const metinUyumu = (item.kaynak || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(aramaMetni.toLowerCase());
+    return metinUyumu && tarihFiltresiUygula(item.tarih);
+  });
+
+  const filtrelenmisGiderler = giderler.filter(item => {
+    const metinUyumu = (item.kimeOdendi || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
+                       (item.kategori || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(aramaMetni.toLowerCase());
+    return metinUyumu && tarihFiltresiUygula(item.tarih);
+  });
 
   if (!girisYapanKullanici) {
     return (
@@ -705,7 +728,40 @@ function App() {
               </div>
             </div>
 
-            {/* GELİR LİSTESİ TABLOSU (DÜZENLE & SİL EKLENDİ) */}
+            {/* GENEL FİLTRELEME ÇUBUĞU */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+              <input
+                type="text" placeholder="Arama yap (Firma, kaynak, kategori, açıklama)..." 
+                value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)}
+                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-80"
+              />
+              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Başlangıç:</span>
+                  <input 
+                    type="date" value={baslangicTarihi} onChange={(e) => setBaslangicTarihi(e.target.value)}
+                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Bitiş:</span>
+                  <input 
+                    type="date" value={bitisTarihi} onChange={(e) => setBitisTarihi(e.target.value)}
+                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                  />
+                </div>
+                {(baslangicTarihi || bitisTarihi || aramaMetni) && (
+                  <button 
+                    onClick={() => { setBaslangicTarihi(''); setBitisTarihi(''); setAramaMetni(''); }}
+                    className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* GELİR LİSTESİ TABLOSU */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
               <h2 className="text-lg font-semibold text-slate-700">Kasa Gelir Listesi</h2>
               <div className="overflow-x-auto">
@@ -720,10 +776,10 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
-                    {gelirler.length === 0 ? (
+                    {filtrelenmisGelirler.length === 0 ? (
                       <tr><td colSpan="5" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
                     ) : (
-                      gelirler.map((item) => (
+                      filtrelenmisGelirler.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium text-slate-800">{item.kaynak}</td>
@@ -741,14 +797,9 @@ function App() {
               </div>
             </div>
 
+            {/* GİDER LİSTESİ TABLOSU */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-lg font-semibold text-slate-700">Kasa Gider Listesi</h2>
-                <input
-                  type="text" placeholder="Ara..." value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)}
-                  className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-72"
-                />
-              </div>
+              <h2 className="text-lg font-semibold text-slate-700">Kasa Gider Listesi</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -871,40 +922,93 @@ function App() {
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-slate-700">Aylık Finansal Rapor & Arşiv</h2>
+                <h2 className="text-lg font-semibold text-slate-700">Aylık Finansal Rapor & Detaylı Günlük Görünüm</h2>
                 <div className="flex gap-2">
                   <button onClick={raporlariArsivle} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">Raporları Arşivle</button>
                   <button onClick={excelIndir} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">Excel İndir</button>
                   <button onClick={pdfIndir} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-700 transition">PDF İndir</button>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
-                      <th className="pb-3 font-medium">Ay / Yıl</th>
-                      <th className="pb-3 font-medium text-emerald-600">Toplam Gelir</th>
-                      <th className="pb-3 font-medium text-red-600">Toplam Gider</th>
-                      <th className="pb-3 font-medium text-right">Net Durum</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
-                    {arşivRaporlar.length === 0 ? (
-                      <tr><td colSpan="4" className="py-4 text-center text-slate-400">Arşivlenmiş rapor bulunmuyor.</td></tr>
-                    ) : (
-                      arşivRaporlar.map((veri) => (
-                        <tr key={veri.id} className="hover:bg-slate-50/50">
-                          <td className="py-3 font-medium text-slate-800 capitalize">{veri.ayYil}</td>
-                          <td className="py-3 text-emerald-600 font-semibold">+{veri.toplamGelir.toLocaleString('tr-TR')} TL</td>
-                          <td className="py-3 text-red-600 font-semibold">-{veri.toplamGider.toLocaleString('tr-TR')} TL</td>
-                          <td className={`py-3 text-right font-bold ${veri.netBakiye >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                            {veri.netBakiye.toLocaleString('tr-TR')} TL
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+
+              <div className="space-y-3">
+                {Object.entries(aylikRapor).length === 0 ? (
+                  <p className="text-center text-slate-400 py-4">Rapor verisi bulunmuyor.</p>
+                ) : (
+                  Object.entries(aylikRapor).map(([ayYil, veri]) => {
+                    const netDurum = veri.gelir - veri.gider;
+                    const isOpen = secilenAy === ayYil;
+                    // Günlük detayları tarihe göre (eskiden yeniye veya yeninden eskiye) sıralayalım
+                    const siraliDetaylar = [...veri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
+                    return (
+                      <div key={ayYil} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm transition">
+                        {/* Ay Satırı (Tıklanabilir Başlık) */}
+                        <div 
+                          onClick={() => setSecilenAy(isOpen ? null : ayYil)}
+                          className="bg-slate-50 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-slate-800 text-base capitalize">{ayYil}</span>
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                              {veri.detaylar.length} İşlem
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-6 text-sm">
+                            <span className="text-emerald-600 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
+                            <span className="text-red-600 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
+                            <span className={`font-bold ${netDurum >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              Net: {netDurum.toLocaleString('tr-TR')} TL
+                            </span>
+                            <span className="text-slate-400 text-xs font-bold">{isOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                          </div>
+                        </div>
+
+                        {/* Seçilen Ayın Açılır Detay Paneli */}
+                        {isOpen && (
+                          <div className="p-4 bg-white border-t border-slate-200 space-y-4">
+                            {/* Üst Kısımda O Ayın Özeti */}
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center text-xs text-slate-600">
+                              <span>Rapor Dönemi: <strong className="text-slate-800 uppercase">{ayYil}</strong></span>
+                              <span>Toplam İşlem Hacmi: <strong>{veri.detaylar.length} adet</strong></span>
+                            </div>
+
+                            {/* Günlük Hareketlerin Alt Alta Sıralandığı Tablo */}
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="border-b border-slate-100 text-slate-400 text-xs">
+                                    <th className="pb-2 font-medium">Tarih</th>
+                                    <th className="pb-2 font-medium">İşlem Türü</th>
+                                    <th className="pb-2 font-medium">Kaynak / Firma</th>
+                                    <th className="pb-2 font-medium">Kategori / Açıklama</th>
+                                    <th className="pb-2 font-medium text-right">Tutar</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                                  {siraliDetaylar.map((item, index) => (
+                                    <tr key={index} className="hover:bg-slate-50/50">
+                                      <td className="py-2.5 text-xs text-slate-500">{new Date(item.tarih).toLocaleDateString()}</td>
+                                      <td className="py-2.5">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                          {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 font-medium text-slate-800">{item.kaynak || item.kimeOdendi}</td>
+                                      <td className="py-2.5 text-xs text-slate-500">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
+                                      <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                        {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
