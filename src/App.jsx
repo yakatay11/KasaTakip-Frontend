@@ -442,7 +442,7 @@ function App() {
       localStorage.removeItem('kasa_talepForm');
       localStorage.removeItem('kasa_talepTaslakId');
       verileriGetir();
-      alert("Gider talebi başarıyla oluşturuldu.");
+      alert("Gelir/Gider talebi başarıyla oluşturuldu.");
     } catch (error) { console.error("Talep oluşturma hatası:", error); }
   };
 
@@ -451,7 +451,7 @@ function App() {
       const response = await fetch(`${API_URL}/GiderTalebi/${id}/onayla`, { method: 'PUT' });
       if (response.ok) {
         verileriGetir();
-        alert("Talep onaylandı ve kasaya gider olarak işlendi.");
+        alert("Talep onaylandı ve kasaya işlendi.");
       }
     } catch (error) { console.error("Talep onaylama hatası:", error); }
   };
@@ -612,7 +612,7 @@ function App() {
             onClick={() => setAktifSekme('talepler')}
             className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'talepler' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-            {girisYapanKullanici.rol === 'Personel' ? 'Gider Taleplerim' : 'Gider Talepleri Onay'}
+            {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerim' : 'Gelir/Gider Talepleri Onay'}
           </button>
 
           {girisYapanKullanici.rol !== 'Personel' && (
@@ -841,7 +841,7 @@ function App() {
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 max-w-xl mx-auto">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Gider Talebi Oluştur {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Gelir/Gider Talebi Oluştur {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
                 <form onSubmit={talepEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Kime Ödenecek / Firma"
@@ -872,7 +872,7 @@ function App() {
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
               <h2 className="text-lg font-semibold text-slate-700">
-                {girisYapanKullanici.rol === 'Personel' ? 'Gider Taleplerimin Durumu' : 'Onay Bekleyen Gider Talepleri'}
+                {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerimin Durumu' : 'Onay Bekleyen Gelir/Gider Talepleri'}
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
