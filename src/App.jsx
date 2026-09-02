@@ -14,6 +14,15 @@ function App() {
   const [loginForm, setLoginForm] = useState({ kullaniciAdi: '', sifre: '' });
   const [yukleniyor, setYukleniyor] = useState(false);
 
+  // --- KARANLIK MOD STATE'İ ---
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('kasa_darkMode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kasa_darkMode', darkMode);
+  }, [darkMode]);
+
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
@@ -698,29 +707,29 @@ function App() {
 
   if (!girisYapanKullanici) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+      <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-900 text-white'} flex items-center justify-center p-6 transition-colors`}>
         <Toaster position="top-right" />
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6">
+        <div className={`${darkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white'} p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6 transition-colors`}>
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-slate-800">Kasa Takip Sistemi</h1>
-            <p className="text-sm text-slate-500">Lütfen kullanıcı bilgileriyle giriş yapın</p>
+            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Kasa Takip Sistemi</h1>
+            <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Lütfen kullanıcı bilgileriyle giriş yapın</p>
           </div>
           <form onSubmit={girisYap} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Kullanıcı Adı</label>
+              <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Kullanıcı Adı</label>
               <input
                 type="text" value={loginForm.kullaniciAdi}
                 onChange={(e) => setLoginForm({ ...loginForm, kullaniciAdi: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
                 placeholder="Kullanıcı adınızı girin" required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Şifre</label>
+              <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Şifre</label>
               <input
                 type="password" value={loginForm.sifre}
                 onChange={(e) => setLoginForm({ ...loginForm, sifre: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
                 placeholder="••••••••" required
               />
             </div>
@@ -729,7 +738,7 @@ function App() {
               disabled={yukleniyor}
               className={`w-full text-white font-medium py-3 rounded-lg transition text-sm shadow-sm ${yukleniyor ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {yukleniyor ? 'Giriş Yapılıyor (Sunucu uyanıyor olabilir)...' : 'Sisteme Giriş Yap'}
+              {yukleniyor ? 'Giriş Yapılıyor...' : 'Sisteme Giriş Yap'}
             </button>
           </form>
         </div>
@@ -737,26 +746,42 @@ function App() {
     );
   }
 
+  const cardBg = darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-100 text-slate-800';
+  const inputBg = darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400';
+  const tableHeader = darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400';
+  const tableRowHover = darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/50';
+  const tableDivider = darkMode ? 'divide-slate-800 text-slate-300' : 'divide-slate-50 text-slate-600';
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'} p-6 transition-colors`}>
       <Toaster position="top-right" />
       <div className="max-w-5xl mx-auto space-y-6">
         
-        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        {/* ÜST BİLGİ & TEMA DEĞİŞTİRME */}
+        <div className={`flex justify-between items-center ${cardBg} p-4 rounded-xl shadow-sm border transition-colors`}>
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Kasa Takip Sistemi</h1>
-            <p className="text-xs text-slate-500">Hoş geldiniz, <span className="font-semibold text-slate-700">{girisYapanKullanici.adSoyad}</span> ({girisYapanKullanici.rol})</p>
+            <h1 className="text-xl font-bold">Kasa Takip Sistemi</h1>
+            <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Hoş geldiniz, <span className="font-semibold">{girisYapanKullanici.adSoyad}</span> ({girisYapanKullanici.rol})</p>
           </div>
-          <button onClick={cikisYap} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-xs font-medium hover:bg-slate-200 transition">
-            Çıkış Yap
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-amber-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {darkMode ? '☀️ Aydınlık' : '🌙 Karanlık'}
+            </button>
+            <button onClick={cikisYap} className={`px-4 py-2 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              Çıkış Yap
+            </button>
+          </div>
         </div>
 
-        <div className="flex justify-start items-center flex-wrap gap-2 border-b border-slate-200 pb-3 w-full">
+        {/* SEKMELER */}
+        <div className={`flex justify-start items-center flex-wrap gap-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'} pb-3 w-full`}>
           {girisYapanKullanici.rol !== 'Personel' && (
             <button
               onClick={() => setAktifSekme('islemler')}
-              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'islemler' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'islemler' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
             >
               Kasa & İşlem Yönetimi
             </button>
@@ -764,7 +789,7 @@ function App() {
 
           <button
             onClick={() => setAktifSekme('talepler')}
-            className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'talepler' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'talepler' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
           >
             {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerim' : 'Gelir/Gider Talepleri Onay'}
           </button>
@@ -772,7 +797,7 @@ function App() {
           {girisYapanKullanici.rol !== 'Personel' && (
             <button
               onClick={() => setAktifSekme('raporlar')}
-              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'raporlar' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'raporlar' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
             >
               Günlük & Aylık Raporlar
             </button>
@@ -781,7 +806,7 @@ function App() {
           {girisYapanKullanici.rol !== 'Personel' && (
             <button
               onClick={() => setAktifSekme('gecmis')}
-              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'gecmis' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'gecmis' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
             >
               İşlem Geçmişi
             </button>
@@ -790,61 +815,63 @@ function App() {
           {girisYapanKullanici.rol === 'Yonetici' && (
             <button
               onClick={() => setAktifSekme('kullanicilar')}
-              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'kullanicilar' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'kullanicilar' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
             >
               Kullanıcı Yönetimi
             </button>
           )}
         </div>
 
+        {/* ÖZET KARTLAR */}
         {girisYapanKullanici.rol !== 'Personel' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-400">Toplam Gelir</p>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Toplam Gelir</p>
               <h3 className="text-2xl font-bold text-emerald-600 mt-1">{toplamGelir.toLocaleString('tr-TR')} TL</h3>
             </div>
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-400">Toplam Gider</p>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Toplam Gider</p>
               <h3 className="text-2xl font-bold text-red-600 mt-1">{toplamGider.toLocaleString('tr-TR')} TL</h3>
             </div>
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-400">Net Kasa Durumu</p>
-              <h3 className={`text-2xl font-bold mt-1 ${netBakiye >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Net Kasa Durumu</p>
+              <h3 className={`text-2xl font-bold mt-1 ${netBakiye >= 0 ? 'text-blue-500' : 'text-red-600'}`}>
                 {netBakiye.toLocaleString('tr-TR')} TL
               </h3>
             </div>
           </div>
         )}
 
+        {/* İŞLEMLER SEKMESİ */}
         {aktifSekme === 'islemler' && girisYapanKullanici.rol !== 'Personel' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">
                   {duzenlenenGelirId ? 'Geliri Düzenle' : `Yeni Gelir Ekle ${gelirTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
                 </h2>
                 <form onSubmit={gelirEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Gelir Kaynağı (Örn: Satış)"
                     value={gelirForm.kaynak} onChange={(e) => setGelirForm({ ...gelirForm, kaynak: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={gelirForm.tutar} onChange={(e) => setGelirForm({ ...gelirForm, tutar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Açıklama"
                     value={gelirForm.aciklama} onChange={(e) => setGelirForm({ ...gelirForm, aciklama: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <div className="flex gap-2">
                     <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
                       {duzenlenenGelirId ? 'Geliri Güncelle' : 'Geliri Kaydet & Onayla'}
                     </button>
                     {duzenlenenGelirId && (
-                      <button type="button" onClick={() => { setDuzenlenenGelirId(null); setGelirForm({kaynak: '', tutar: '', aciklama: ''}); }} className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm">
+                      <button type="button" onClick={() => { setDuzenlenenGelirId(null); setGelirForm({kaynak: '', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                         İptal
                       </button>
                     )}
@@ -852,37 +879,37 @@ function App() {
                 </form>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">
                   {duzenlenenGiderId ? 'Gideri Düzenle' : `Yeni Gider Ekle ${giderTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
                 </h2>
                 <form onSubmit={giderEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Kime Ödendi / Firma"
                     value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Kategori (Örn: Fatura, Ofis)"
                     value={giderForm.kategori} onChange={(e) => setGiderForm({ ...giderForm, kategori: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Açıklama"
                     value={giderForm.aciklama} onChange={(e) => setGiderForm({ ...giderForm, aciklama: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <div className="flex gap-2">
                     <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
                       {duzenlenenGiderId ? 'Gideri Güncelle' : 'Gideri Kaydet & Onayla'}
                     </button>
                     {duzenlenenGiderId && (
-                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: '', tutar: '', aciklama: ''}); }} className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm">
+                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: '', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
                         İptal
                       </button>
                     )}
@@ -891,23 +918,23 @@ function App() {
               </div>
             </div>
 
-            {/* İŞLEMLER SEKME ARAMA KUTUSU */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-              <h2 className="text-lg font-semibold text-slate-700">Son İşlem Kayıtları</h2>
+            {/* ARAMA */}
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">Son İşlem Kayıtları</h2>
               <input
                 type="text" placeholder="Tablolarda ara..."
                 value={islemArama} onChange={(e) => setIslemArama(e.target.value)}
-                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-72"
+                className={`border ${inputBg} rounded-lg p-2 text-sm w-full md:w-72`}
               />
             </div>
 
-            {/* GELİR LİSTESİ TABLOSU */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-md font-semibold text-slate-600">Kasa Gelir Listesi</h2>
+            {/* GELİR LİSTESİ */}
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-md font-semibold">Kasa Gelir Listesi</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                    <tr className={`border-b ${tableHeader} text-sm`}>
                       <th className="pb-3 font-medium">Tarih</th>
                       <th className="pb-3 font-medium">Gelir Kaynağı</th>
                       <th className="pb-3 font-medium">Açıklama</th>
@@ -915,19 +942,19 @@ function App() {
                       <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                  <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {islemIcinGelirler.length === 0 ? (
-                      <tr><td colSpan="5" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
+                      <tr><td colSpan="5" className="py-4 text-center text-slate-500">Gelir kaydı bulunamadı.</td></tr>
                     ) : (
                       islemIcinGelirler.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/50">
+                        <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
-                          <td className="py-3 font-medium text-slate-800">{item.kaynak}</td>
+                          <td className="py-3 font-medium">{item.kaynak}</td>
                           <td className="py-3">{item.aciklama}</td>
-                          <td className="py-3 font-semibold text-emerald-600">+{item.tutar.toLocaleString('tr-TR')} TL</td>
+                          <td className="py-3 font-semibold text-emerald-500">+{item.tutar.toLocaleString('tr-TR')} TL</td>
                           <td className="py-3 text-right space-x-2">
-                            <button onClick={() => gelirDuzenleBaslat(item)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
-                            <button onClick={() => gelirSil(item.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                            <button onClick={() => gelirDuzenleBaslat(item)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                            <button onClick={() => gelirSil(item.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
                           </td>
                         </tr>
                       ))
@@ -937,13 +964,13 @@ function App() {
               </div>
             </div>
 
-            {/* GİDER LİSTESİ TABLOSU */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-md font-semibold text-slate-600">Kasa Gider Listesi</h2>
+            {/* GİDER LİSTESİ */}
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-md font-semibold">Kasa Gider Listesi</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                    <tr className={`border-b ${tableHeader} text-sm`}>
                       <th className="pb-3 font-medium">Tarih</th>
                       <th className="pb-3 font-medium">Firma / Ödenen</th>
                       <th className="pb-3 font-medium">Kategori</th>
@@ -952,20 +979,20 @@ function App() {
                       <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                  <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {islemIcinGiderler.length === 0 ? (
-                      <tr><td colSpan="6" className="py-4 text-center text-slate-400">Kayıt bulunamadı.</td></tr>
+                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Kayıt bulunamadı.</td></tr>
                     ) : (
                       islemIcinGiderler.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/50">
+                        <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
-                          <td className="py-3 font-medium text-slate-800">{item.kimeOdendi}</td>
-                          <td className="py-3"><span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs">{item.kategori}</span></td>
+                          <td className="py-3 font-medium">{item.kimeOdendi}</td>
+                          <td className="py-3"><span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs`}>{item.kategori}</span></td>
                           <td className="py-3">{item.aciklama}</td>
-                          <td className="py-3 font-semibold text-red-600">-{item.tutar.toLocaleString('tr-TR')} TL</td>
+                          <td className="py-3 font-semibold text-red-500">-{item.tutar.toLocaleString('tr-TR')} TL</td>
                           <td className="py-3 text-right space-x-2">
-                            <button onClick={() => giderDuzenleBaslat(item)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
-                            <button onClick={() => giderSil(item.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                            <button onClick={() => giderDuzenleBaslat(item)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                            <button onClick={() => giderSil(item.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
                           </td>
                         </tr>
                       ))
@@ -977,31 +1004,32 @@ function App() {
           </>
         )}
 
+        {/* TALEPLER SEKMESİ */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 max-w-xl mx-auto">
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Gelir/Gider Talebi Oluştur {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border max-w-xl mx-auto transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">Yeni Gelir/Gider Talebi Oluştur {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
                 <form onSubmit={talepEkle} className="space-y-4">
                   <input
                     type="text" placeholder="Kime Ödenecek / Firma"
                     value={talepForm.kimeOdenecek} onChange={(e) => setTalepForm({ ...talepForm, kimeOdenecek: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Kategori"
                     value={talepForm.kategori} onChange={(e) => setTalepForm({ ...talepForm, kategori: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <input
                     type="number" placeholder="Tutar (TL)"
                     value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Açıklama"
                     value={talepForm.aciklama} onChange={(e) => setTalepForm({ ...talepForm, aciklama: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
                     Talep Gönder & Onayla
@@ -1010,14 +1038,14 @@ function App() {
               </div>
             )}
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-lg font-semibold text-slate-700">
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">
                 {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerimin Durumu' : 'Onay Bekleyen Gelir/Gider Talepleri'}
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                    <tr className={`border-b ${tableHeader} text-sm`}>
                       <th className="pb-3 font-medium">Tarih</th>
                       <th className="pb-3 font-medium">Firma / Ödenen</th>
                       <th className="pb-3 font-medium">Kategori</th>
@@ -1026,24 +1054,24 @@ function App() {
                       {girisYapanKullanici.rol === 'Yonetici' && <th className="pb-3 font-medium text-right">İşlem</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                  <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {giderTalepleri.length === 0 ? (
-                      <tr><td colSpan="6" className="py-4 text-center text-slate-400">Talep bulunmuyor.</td></tr>
+                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Talep bulunmuyor.</td></tr>
                     ) : (
                       giderTalepleri.map((talep) => (
-                        <tr key={talep.id} className="hover:bg-slate-50/50">
+                        <tr key={talep.id} className={tableRowHover}>
                           <td className="py-3">{new Date(talep.tarih).toLocaleDateString()}</td>
-                          <td className="py-3 font-medium text-slate-800">{talep.kimeOdenecek}</td>
+                          <td className="py-3 font-medium">{talep.kimeOdenecek}</td>
                           <td className="py-3">{talep.kategori}</td>
                           <td className="py-3 font-semibold">{talep.tutar.toLocaleString('tr-TR')} TL</td>
                           <td className="py-3">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${talep.durum === 'Onaylandı' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${talep.durum === 'Onaylandı' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
                               {talep.durum}
                             </span>
                           </td>
                           {girisYapanKullanici.rol === 'Yonetici' && talep.durum === 'Bekliyor' && (
                             <td className="py-3 text-right">
-                              <button onClick={() => talepOnayla(talep.id)} className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-blue-100 transition">
+                              <button onClick={() => talepOnayla(talep.id)} className="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition">
                                 Onayla & Kasaya İşle
                               </button>
                             </td>
@@ -1058,44 +1086,43 @@ function App() {
           </div>
         )}
 
+        {/* RAPORLAR SEKMESİ */}
         {aktifSekme === 'raporlar' && girisYapanKullanici.rol !== 'Personel' && (
           <div className="space-y-6">
-            
-            {/* RAPORLAR SAYFASINA ALINAN GENEL FİLTRELEME ÇUBUĞU */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4 items-center justify-between transition-colors`}>
               <input
                 type="text" placeholder="Raporlarda ara..." 
                 value={raporArama} onChange={(e) => setRaporArama(e.target.value)}
-                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-64"
+                className={`border ${inputBg} rounded-lg p-2 text-sm w-full md:w-64`}
               />
               <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
                 <select 
                   value={raporKategori} onChange={(e) => setRaporKategori(e.target.value)}
-                  className="border border-slate-200 rounded-lg p-1.5 text-sm outline-none cursor-pointer"
+                  className={`border ${inputBg} rounded-lg p-1.5 text-sm outline-none cursor-pointer`}
                 >
                   <option value="">Tüm Kategoriler</option>
                   {giderKategorileri.map((kat, idx) => (
                     <option key={idx} value={kat}>{kat}</option>
                   ))}
                 </select>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
+                <div className={`flex items-center gap-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                   <span>Başlangıç:</span>
                   <input 
                     type="date" value={raporBaslangic} onChange={(e) => setRaporBaslangic(e.target.value)}
-                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                    className={`border ${inputBg} rounded-lg p-1.5 text-sm`}
                   />
                 </div>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
+                <div className={`flex items-center gap-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                   <span>Bitiş:</span>
                   <input 
                     type="date" value={raporBitis} onChange={(e) => setRaporBitis(e.target.value)}
-                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                    className={`border ${inputBg} rounded-lg p-1.5 text-sm`}
                   />
                 </div>
                 {(raporBaslangic || raporBitis || raporArama || raporKategori) && (
                   <button 
                     onClick={() => { setRaporBaslangic(''); setRaporBitis(''); setRaporArama(''); setRaporKategori(''); }}
-                    className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                   >
                     Filtreleri Temizle
                   </button>
@@ -1103,9 +1130,9 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-slate-700">Aylık Finansal Rapor & Detaylı Günlük Görünüm</h2>
+                <h2 className="text-lg font-semibold">Aylık Finansal Rapor & Detaylı Günlük Görünüm</h2>
                 <div className="flex gap-2">
                   <button onClick={raporlariArsivle} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">Raporları Arşivle</button>
                   <button onClick={excelIndir} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">Excel İndir</button>
@@ -1115,7 +1142,7 @@ function App() {
 
               <div className="space-y-3">
                 {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
-                  <p className="text-center text-slate-400 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
+                  <p className="text-center text-slate-500 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
                 ) : (
                   Object.entries(aylikRapor)
                     .filter(([_, veri]) => veri.detaylar.length > 0)
@@ -1125,40 +1152,38 @@ function App() {
                       const siraliDetaylar = [...veri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
 
                       return (
-                        <div key={ayYil} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm transition">
-                          {/* Ay Satırı (Tıklanabilir Başlık) */}
+                        <div key={ayYil} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-xl overflow-hidden shadow-sm transition`}>
                           <div 
                             onClick={() => setSecilenAy(isOpen ? null : ayYil)}
-                            className="bg-slate-50 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition"
+                            className={`${darkMode ? 'bg-slate-900 hover:bg-slate-850' : 'bg-slate-50 hover:bg-slate-100'} p-4 flex justify-between items-center cursor-pointer transition`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className="font-bold text-slate-800 text-base capitalize">{ayYil}</span>
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                              <span className="font-bold text-base capitalize">{ayYil}</span>
+                              <span className="text-xs bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-medium">
                                 {veri.detaylar.length} İşlem
                               </span>
                             </div>
                             <div className="flex items-center gap-6 text-sm">
-                              <span className="text-emerald-600 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
-                              <span className="text-red-600 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
-                              <span className={`font-bold ${netDurum >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              <span className="text-emerald-500 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
+                              <span className="text-red-500 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
+                              <span className={`font-bold ${netDurum >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                                 Net: {netDurum.toLocaleString('tr-TR')} TL
                               </span>
                               <span className="text-slate-400 text-xs font-bold">{isOpen ? '▲ Kapat' : '▼ Detay'}</span>
                             </div>
                           </div>
 
-                          {/* Seçilen Ayın Açılır Detay Paneli */}
                           {isOpen && (
-                            <div className="p-4 bg-white border-t border-slate-200 space-y-4">
-                              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center text-xs text-slate-600">
-                                <span>Rapor Dönemi: <strong className="text-slate-800 uppercase">{ayYil}</strong></span>
-                                <span>Toplam İşlem Hacmi: <strong>{veri.detaylar.length} adet</strong></span>
+                            <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-4`}>
+                              <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-3 rounded-lg border flex justify-between items-center text-xs text-slate-400`}>
+                                <span>Rapor Dönemi: <strong className="uppercase text-slate-200">{ayYil}</strong></span>
+                                <span>Toplam İşlem Hacmi: <strong className="text-slate-200">{veri.detaylar.length} adet</strong></span>
                               </div>
 
                               <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                   <thead>
-                                    <tr className="border-b border-slate-100 text-slate-400 text-xs">
+                                    <tr className={`border-b ${tableHeader} text-xs`}>
                                       <th className="pb-2 font-medium">Tarih</th>
                                       <th className="pb-2 font-medium">İşlem Türü</th>
                                       <th className="pb-2 font-medium">Kaynak / Firma</th>
@@ -1166,18 +1191,18 @@ function App() {
                                       <th className="pb-2 font-medium text-right">Tutar</th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                                  <tbody className={`divide-y ${tableDivider} text-sm`}>
                                     {siraliDetaylar.map((item, index) => (
-                                      <tr key={index} className="hover:bg-slate-50/50">
-                                        <td className="py-2.5 text-xs text-slate-500">{new Date(item.tarih).toLocaleDateString()}</td>
+                                      <tr key={index} className={tableRowHover}>
+                                        <td className="py-2.5 text-xs text-slate-400">{new Date(item.tarih).toLocaleDateString()}</td>
                                         <td className="py-2.5">
-                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                                             {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
                                           </span>
                                         </td>
-                                        <td className="py-2.5 font-medium text-slate-800">{item.kaynak || item.kimeOdendi}</td>
-                                        <td className="py-2.5 text-xs text-slate-500">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
-                                        <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                        <td className="py-2.5 font-medium">{item.kaynak || item.kimeOdendi}</td>
+                                        <td className="py-2.5 text-xs text-slate-400">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
+                                        <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
                                           {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
                                         </td>
                                       </tr>
@@ -1196,29 +1221,30 @@ function App() {
           </div>
         )}
 
+        {/* İŞLEM GEÇMİŞİ SEKMESİ */}
         {aktifSekme === 'gecmis' && girisYapanKullanici.rol !== 'Personel' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-            <h2 className="text-lg font-semibold text-slate-700">Tüm Sistem İşlem Geçmişi (Audit Trail)</h2>
+          <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+            <h2 className="text-lg font-semibold">Tüm Sistem İşlem Geçmişi (Audit Trail)</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                  <tr className={`border-b ${tableHeader} text-sm`}>
                     <th className="pb-3 font-medium">Tarih</th>
                     <th className="pb-3 font-medium">İşlem Türü</th>
                     <th className="pb-3 font-medium">Detay</th>
                     <th className="pb-3 font-medium text-right">Tutar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                <tbody className={`divide-y ${tableDivider} text-sm`}>
                   {tumIslemGecmisi.length === 0 ? (
-                    <tr><td colSpan="4" className="py-4 text-center text-slate-400">Geçmiş işlem bulunmuyor.</td></tr>
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500">Geçmiş işlem bulunmuyor.</td></tr>
                   ) : (
                     tumIslemGecmisi.map((islem) => (
-                      <tr key={islem.id} className="hover:bg-slate-50/50">
-                        <td className="py-3 text-xs text-slate-500">{new Date(islem.tarih).toLocaleString('tr-TR')}</td>
-                        <td className="py-3 font-medium text-slate-800">{islem.tur}</td>
+                      <tr key={islem.id} className={tableRowHover}>
+                        <td className="py-3 text-xs text-slate-400">{new Date(islem.tarih).toLocaleString('tr-TR')}</td>
+                        <td className="py-3 font-medium">{islem.tur}</td>
                         <td className="py-3 text-sm">{islem.aciklama}</td>
-                        <td className={`py-3 text-right font-semibold ${islem.tip === 'gelir' ? 'text-emerald-600' : islem.tip === 'gider' ? 'text-red-600' : 'text-amber-600'}`}>
+                        <td className={`py-3 text-right font-semibold ${islem.tip === 'gelir' ? 'text-emerald-500' : islem.tip === 'gider' ? 'text-red-500' : 'text-amber-500'}`}>
                           {islem.tip === 'gelir' ? '+' : islem.tip === 'gider' ? '-' : ''}{islem.tutar.toLocaleString('tr-TR')} TL
                         </td>
                       </tr>
@@ -1230,36 +1256,37 @@ function App() {
           </div>
         )}
 
+        {/* KULLANICI YÖNETİMİ SEKMESİ */}
         {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol === 'Yonetici' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit space-y-6">
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border h-fit space-y-6 transition-colors`}>
               <div>
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+                <h2 className="text-lg font-semibold mb-4">
                   {duzenlenenKullaniciId ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı Ekle'}
                 </h2>
                 <form onSubmit={kullaniciKaydetVeyaGuncelle} className="space-y-4">
                   <input
                     type="text" placeholder="Ad Soyad"
                     value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="text" placeholder="Kullanıcı Adı"
                     value={yeniKullaniciForm.kullaniciAdi} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, kullaniciAdi: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="password" placeholder={duzenlenenKullaniciId ? "Şifre (Değiştirmeyecekseniz boş bırakın)" : "Şifre"}
                     value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" {...(!duzenlenenKullaniciId && { required: true })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} {...(!duzenlenenKullaniciId && { required: true })}
                   />
                   <select
                     value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-white"
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   >
-                    <option value="Yonetici">Yönetici</option>
-                    <option value="Muhasebe">Muhasebe</option>
-                    <option value="Personel">Personel</option>
+                    <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici</option>
+                    <option value="Muhasebe" className={darkMode ? 'bg-slate-900 text-white' : ''}>Muhasebe</option>
+                    <option value="Personel" className={darkMode ? 'bg-slate-900 text-white' : ''}>Personel</option>
                   </select>
                   <div className="flex gap-2">
                     <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
@@ -1272,7 +1299,7 @@ function App() {
                           setDuzenlenenKullaniciId(null); 
                           setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' }); 
                         }} 
-                        className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm"
+                        className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}
                       >
                         İptal
                       </button>
@@ -1281,54 +1308,53 @@ function App() {
                 </form>
               </div>
 
-              <hr className="border-slate-100" />
+              <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
 
-              {/* ŞİFRE GÜNCELLEME FORMU */}
               <div>
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Şifremi Güncelle</h2>
+                <h2 className="text-lg font-semibold mb-4">Şifremi Güncelle</h2>
                 <form onSubmit={sifreGuncelle} className="space-y-4">
                   <input
                     type="password" placeholder="Yeni Şifre"
                     value={sifreForm.yeniSifre} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifre: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
                   <input
                     type="password" placeholder="Yeni Şifre (Tekrar)"
                     value={sifreForm.yeniSifreTekrar} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifreTekrar: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
-                  <button type="submit" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-900 transition text-sm">
+                  <button type="submit" className={`w-full ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-800 hover:bg-slate-900'} text-white font-medium py-2.5 rounded-lg transition text-sm`}>
                     Şifreyi Değiştir
                   </button>
                 </form>
               </div>
             </div>
 
-            <div className="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-lg font-semibold text-slate-700">Sistem Kullanıcıları</h2>
+            <div className={`${cardBg} md:col-span-2 p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">Sistem Kullanıcıları</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 text-sm">
+                    <tr className={`border-b ${tableHeader} text-sm`}>
                       <th className="pb-3 font-medium">Ad Soyad</th>
                       <th className="pb-3 font-medium">Kullanıcı Adı</th>
                       <th className="pb-3 font-medium">Rol</th>
                       <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
+                  <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {kullanicilar.map((kul) => (
-                      <tr key={kul.id} className="hover:bg-slate-50/50">
-                        <td className="py-3 font-medium text-slate-800">{kul.adSoyad}</td>
+                      <tr key={kul.id} className={tableRowHover}>
+                        <td className="py-3 font-medium">{kul.adSoyad}</td>
                         <td className="py-3">{kul.kullaniciAdi}</td>
                         <td className="py-3">
-                          <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-medium">
+                          <span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs font-medium`}>
                             {kul.rol}
                           </span>
                         </td>
                         <td className="py-3 text-right space-x-2">
-                          <button onClick={() => kullaniciDuzenleBaslat(kul)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
-                          <button onClick={() => kullaniciSil(kul.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                          <button onClick={() => kullaniciDuzenleBaslat(kul)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                          <button onClick={() => kullaniciSil(kul.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
                         </td>
                       </tr>
                     ))}
@@ -1336,27 +1362,6 @@ function App() {
                 </table>
               </div>
             </div>
-          </div>
-        )}
-
-        {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol !== 'Yonetici' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 max-w-md mx-auto space-y-4">
-            <h2 className="text-lg font-semibold text-slate-700">Şifremi Güncelle</h2>
-            <form onSubmit={sifreGuncelle} className="space-y-4">
-              <input
-                type="password" placeholder="Yeni Şifre"
-                value={sifreForm.yeniSifre} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifre: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
-              />
-              <input
-                type="password" placeholder="Yeni Şifre (Tekrar)"
-                value={sifreForm.yeniSifreTekrar} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifreTekrar: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
-              />
-              <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
-                Şifreyi Değiştir
-              </button>
-            </form>
           </div>
         )}
 
