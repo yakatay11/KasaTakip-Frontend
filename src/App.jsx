@@ -26,6 +26,7 @@ function App() {
   // --- DÜZENLEME STATE'LERİ ---
   const [duzenlenenGelirId, setDuzenlenenGelirId] = useState(null);
   const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
+  const [duzenlenenKullaniciId, setDuzenlenenKullaniciId] = useState(null);
 
   // --- İŞLEMLER SEKME ARAMASI ---
   const [islemArama, setIslemArama] = useState('');
@@ -316,6 +317,73 @@ function App() {
     }
   };
 
+  // --- KULLANICI EKLE / GÜNCELLE ---
+  const kullaniciKaydetVeyaGuncelle = async (e) => {
+    e.preventDefault();
+    try {
+      if (duzenlenenKullaniciId) {
+        const response = await fetch(`${API_URL}/Kullanici/${duzenlenenKullaniciId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(yeniKullaniciForm)
+        });
+        if (response.ok) {
+          toast.success("Kullanıcı başarıyla güncellendi.");
+          setDuzenlenenKullaniciId(null);
+          setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
+          verileriGetir();
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          toast.error(errData.message || "Kullanıcı güncellenemedi.");
+        }
+      } else {
+        const response = await fetch(`${API_URL}/Kullanici`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(yeniKullaniciForm)
+        });
+        if (response.ok) {
+          setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
+          verileriGetir();
+          toast.success("Kullanıcı başarıyla eklendi.");
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          toast.error(errData.message || "Kullanıcı eklenemedi.");
+        }
+      }
+    } catch (error) {
+      console.error("Kullanıcı işlem hatası:", error);
+      toast.error("İşlem sırasında bir hata oluştu.");
+    }
+  };
+
+  const kullaniciDuzenleBaslat = (kul) => {
+    setDuzenlenenKullaniciId(kul.id);
+    setYeniKullaniciForm({
+      adSoyad: kul.adSoyad,
+      kullaniciAdi: kul.kullaniciAdi,
+      sifre: '', // Boş bırakılabilir veya güncellenebilir
+      rol: kul.rol
+    });
+  };
+
+  const kullaniciSil = async (id) => {
+    if (!window.confirm("Bu kullanıcıyı silmek istediğinize emin misiniz?")) return;
+    try {
+      const response = await fetch(`${API_URL}/Kullanici/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        verileriGetir();
+        toast.success("Kullanıcı başarıyla silindi.");
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.message || "Kullanıcı silinemedi.");
+      }
+    } catch (error) {
+      console.error("Silme hatası:", error);
+      toast.error("Kullanıcı silme hatası.");
+    }
+  };
+
   // --- GİDER EKLE / GÜNCELLE ---
   const giderEkle = async (e) => {
     e.preventDefault();
@@ -523,24 +591,6 @@ function App() {
     } catch (error) { 
       console.error("Talep onaylama hatası:", error); 
       toast.error("Onaylama başarısız.");
-    }
-  };
-
-  const yeniKullaniciEkle = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_URL}/Kullanici`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(yeniKullaniciForm)
-      });
-      if (response.ok) {
-        setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-        verileriGetir();
-        toast.success("Kullanıcı başarıyla eklendi.");
-      }
-    } catch (error) { 
-      console.error("Kullanıcı ekleme hatası:", error); 
-      toast.error("Kullanıcı eklenemedi.");
     }
   };
 
@@ -1134,8 +1184,10 @@ function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-slate-700 mb-4">Yeni Kullanıcı Ekle</h2>
-                <form onSubmit={yeniKullaniciEkle} className="space-y-4">
+                <h2 className="text-lg font-semibold text-slate-700 mb-4">
+                  {duzenlenenKullaniciId ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı Ekle'}
+                </h2>
+                <form onSubmit={kullaniciKaydetVeyaGuncelle} className="space-y-4">
                   <input
                     type="text" placeholder="Ad Soyad"
                     value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })}
@@ -1147,9 +1199,9 @@ function App() {
                     className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
                   />
                   <input
-                    type="password" placeholder="Şifre"
+                    type="password" placeholder={duzenlenenKullaniciId ? "Şifre (Değiştirmeyecekseniz boş bırakın)" : "Şifre"}
                     value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" required
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" {...(!duzenlenenKullaniciId && { required: true })}
                   />
                   <select
                     value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })}
@@ -1159,9 +1211,23 @@ function App() {
                     <option value="Muhasebe">Muhasebe</option>
                     <option value="Personel">Personel</option>
                   </select>
-                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
-                    Kullanıcıyı Kaydet
-                  </button>
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                      {duzenlenenKullaniciId ? 'Kullanıcıyı Güncelle' : 'Kullanıcıyı Kaydet'}
+                    </button>
+                    {duzenlenenKullaniciId && (
+                      <button 
+                        type="button" 
+                        onClick={() => { 
+                          setDuzenlenenKullaniciId(null); 
+                          setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' }); 
+                        }} 
+                        className="bg-slate-200 text-slate-700 px-4 rounded-lg text-sm"
+                      >
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
@@ -1197,6 +1263,7 @@ function App() {
                       <th className="pb-3 font-medium">Ad Soyad</th>
                       <th className="pb-3 font-medium">Kullanıcı Adı</th>
                       <th className="pb-3 font-medium">Rol</th>
+                      <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
@@ -1209,6 +1276,10 @@ function App() {
                             {kul.rol}
                           </span>
                         </td>
+                        <td className="py-3 text-right space-x-2">
+                          <button onClick={() => kullaniciDuzenleBaslat(kul)} className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-100 transition">Düzenle</button>
+                          <button onClick={() => kullaniciSil(kul.id)} className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-100 transition">Sil</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1218,7 +1289,6 @@ function App() {
           </div>
         )}
 
-        {/* Personel veya Muhasebe için de kullanıcı sekmesi kapalıyken şifre değiştirme alanı eklenebilir veya kullanıcı yönetimi sekmesi rollerine göre genişletilebilir */}
         {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol !== 'Yonetici' && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 max-w-md mx-auto space-y-4">
             <h2 className="text-lg font-semibold text-slate-700">Şifremi Güncelle</h2>
