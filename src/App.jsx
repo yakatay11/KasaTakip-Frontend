@@ -46,8 +46,24 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  const [giderler, setGiderler] = useState([]);
-  const [gelirler, setGelirler] = useState([]);
+  // --- YEREL DEPOLAMA DESTEKLİ GİDER VE GELİR LİSTELERİ ---
+  const [giderler, setGiderler] = useState(() => {
+    const saved = localStorage.getItem('kasa_giderler');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [gelirler, setGelirler] = useState(() => {
+    const saved = localStorage.getItem('kasa_gelirler');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kasa_giderler', JSON.stringify(giderler));
+  }, [giderler]);
+
+  useEffect(() => {
+    localStorage.setItem('kasa_gelirler', JSON.stringify(gelirler));
+  }, [gelirler]);
+
   const [arşivRaporlar, setArşivRaporlar] = useState([]);
   const [giderTalepleri, setGiderTalepleri] = useState([]);
   const [kullanicilar, setKullanicilar] = useState([]);
@@ -254,7 +270,7 @@ function App() {
     return () => clearTimeout(timer);
   }, [talepForm, talepTaslakId, girisYapanKullanici]);
 
-  // --- TEMEL FONKSİYONLAR ---
+  // --- TEMEL FONKSİYONLAR (YEREL GÜVENLİK KATMANLI) ---
   const verileriGetir = async () => {
     try {
       const giderRes = await fetch(`${API_URL}/Gider`);
@@ -263,12 +279,18 @@ function App() {
       const talepRes = await fetch(`${API_URL}/GiderTalebi`);
       const kulRes = await fetch(`${API_URL}/Kullanici`);
       
-      if (giderRes.ok) setGiderler(await giderRes.json());
-      if (gelirRes.ok) setGelirler(await gelirRes.json());
+      if (giderRes.ok) {
+        const data = await giderRes.json();
+        if (data && data.length > 0) setGiderler(data);
+      }
+      if (gelirRes.ok) {
+        const data = await gelirRes.json();
+        if (data && data.length > 0) setGelirler(data);
+      }
       if (raporRes.ok) setArşivRaporlar(await raporRes.json());
       if (talepRes.ok) setGiderTalepleri(await talepRes.json());
       if (kulRes.ok) setKullanicilar(await kulRes.json());
-    } catch (error) { console.error("Veri çekme hatası:", error); }
+    } catch (error) { console.error("Veri çekme hatası (yerel veriler korunuyor):", error); }
   };
 
   useEffect(() => {
@@ -770,7 +792,7 @@ function App() {
     }
   };
 
-  // --- GÜNCELLENEN EXCEL İNDİRME FONKSİYONU (POZİTİF SAYILAR) ---
+  // --- EXCEL İNDİRME ---
   const excelIndir = () => {
     const veriDizisi = [];
     
@@ -781,7 +803,7 @@ function App() {
         "Kaynak / Firma": item.kaynak,
         "Kategori": "-",
         "Açıklama": item.aciklama || "-",
-        "Tutar (TL)": item.tutar // Her zaman pozitif
+        "Tutar (TL)": item.tutar
       });
     });
 
@@ -792,7 +814,7 @@ function App() {
         "Kaynak / Firma": item.kimeOdendi,
         "Kategori": item.kategori || "Diğer",
         "Açıklama": item.aciklama || "-",
-        "Tutar (TL)": item.tutar // Pozitif yapıldı (- işareti kaldırıldı)
+        "Tutar (TL)": item.tutar
       });
     });
 
@@ -1581,4 +1603,4 @@ function App() {
   )
 }
 
-export default App;
+export default App
