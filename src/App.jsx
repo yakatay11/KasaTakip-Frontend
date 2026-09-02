@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import { Toaster, toast } from 'react-hot-toast'
 
 const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
@@ -259,14 +260,15 @@ function App() {
         const userData = { id: data.id, adSoyad: data.adSoyad, rol: data.rol };
         setGirisYapanKullanici(userData);
         localStorage.setItem('kasa_girisYapanKullanici', JSON.stringify(userData));
+        toast.success(`Hoş geldiniz, ${data.adSoyad}`);
         if (data.rol === 'Personel') setAktifSekme('talepler');
         else setAktifSekme('islemler');
       } else { 
-        alert(data.message || "Giriş başarısız!"); 
+        toast.error(data.message || "Giriş başarısız!"); 
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      alert("Sunucuya bağlanırken bir hata oluştu.");
+      toast.error("Sunucuya bağlanırken bir hata oluştu.");
     } finally {
       setYukleniyor(false);
     }
@@ -276,6 +278,7 @@ function App() {
     setGirisYapanKullanici(null);
     localStorage.removeItem('kasa_girisYapanKullanici');
     setLoginForm({ kullaniciAdi: '', sifre: '' });
+    toast.success("Çıkış yapıldı.");
   };
 
   // --- GİDER EKLE / GÜNCELLE ---
@@ -295,7 +298,7 @@ function App() {
           })
         });
         setDuzenlenenGiderId(null);
-        alert("Gider başarıyla güncellendi.");
+        toast.success("Gider başarıyla güncellendi.");
       } else {
         if (giderTaslakId) {
           await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
@@ -306,6 +309,7 @@ function App() {
               tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
             })
           });
+          toast.success("Gider kaydedildi.");
         } else {
           await fetch(`${API_URL}/Gider`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -315,6 +319,7 @@ function App() {
               tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
             })
           });
+          toast.success("Gider eklendi.");
         }
       }
 
@@ -323,7 +328,10 @@ function App() {
       localStorage.removeItem('kasa_giderForm');
       localStorage.removeItem('kasa_giderTaslakId');
       verileriGetir();
-    } catch (error) { console.error("Gider ekleme hatası:", error); }
+    } catch (error) { 
+      console.error("Gider ekleme hatası:", error); 
+      toast.error("İşlem sırasında hata oluştu.");
+    }
   };
 
   const giderDuzenleBaslat = (item) => {
@@ -344,11 +352,15 @@ function App() {
            localStorage.removeItem('kasa_giderTaslakId');
         }
         verileriGetir();
+        toast.success("Gider silindi.");
       } else {
         const errData = await response.json().catch(() => ({}));
-        alert(errData.message || "Bu işlem için yetkiniz yok.");
+        toast.error(errData.message || "Bu işlem için yetkiniz yok.");
       }
-    } catch (error) { console.error("Silme hatası:", error); }
+    } catch (error) { 
+      console.error("Silme hatası:", error); 
+      toast.error("Silme başarısız.");
+    }
   };
 
   // --- GELİR EKLE / GÜNCELLE ---
@@ -366,7 +378,7 @@ function App() {
           })
         });
         setDuzenlenenGelirId(null);
-        alert("Gelir başarıyla güncellendi.");
+        toast.success("Gelir başarıyla güncellendi.");
       } else {
         if (gelirTaslakId) {
           await fetch(`${API_URL}/Gelir/${gelirTaslakId}`, {
@@ -376,6 +388,7 @@ function App() {
               aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
             })
           });
+          toast.success("Gelir kaydedildi.");
         } else {
           await fetch(`${API_URL}/Gelir`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -384,6 +397,7 @@ function App() {
               aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
             })
           });
+          toast.success("Gelir eklendi.");
         }
       }
 
@@ -392,7 +406,10 @@ function App() {
       localStorage.removeItem('kasa_gelirForm');
       localStorage.removeItem('kasa_gelirTaslakId');
       verileriGetir();
-    } catch (error) { console.error("Gelir ekleme hatası:", error); }
+    } catch (error) { 
+      console.error("Gelir ekleme hatası:", error); 
+      toast.error("Gelir eklenirken hata oluştu.");
+    }
   };
 
   const gelirDuzenleBaslat = (item) => {
@@ -412,10 +429,14 @@ function App() {
            localStorage.removeItem('kasa_gelirTaslakId');
         }
         verileriGetir();
+        toast.success("Gelir silindi.");
       } else {
-        alert("Gelir silinemedi.");
+        toast.error("Gelir silinemedi.");
       }
-    } catch (error) { console.error("Gelir silme hatası:", error); }
+    } catch (error) { 
+      console.error("Gelir silme hatası:", error); 
+      toast.error("Gelir silme hatası.");
+    }
   };
 
   const talepEkle = async (e) => {
@@ -450,8 +471,11 @@ function App() {
       localStorage.removeItem('kasa_talepForm');
       localStorage.removeItem('kasa_talepTaslakId');
       verileriGetir();
-      alert("Gelir/Gider talebi başarıyla oluşturuldu.");
-    } catch (error) { console.error("Talep oluşturma hatası:", error); }
+      toast.success("Gelir/Gider talebi başarıyla oluşturuldu.");
+    } catch (error) { 
+      console.error("Talep oluşturma hatası:", error); 
+      toast.error("Talep oluşturulamadı.");
+    }
   };
 
   const talepOnayla = async (id) => {
@@ -459,9 +483,12 @@ function App() {
       const response = await fetch(`${API_URL}/GiderTalebi/${id}/onayla`, { method: 'PUT' });
       if (response.ok) {
         verileriGetir();
-        alert("Talep onaylandı ve kasaya işlendi.");
+        toast.success("Talep onaylandı ve kasaya işlendi.");
       }
-    } catch (error) { console.error("Talep onaylama hatası:", error); }
+    } catch (error) { 
+      console.error("Talep onaylama hatası:", error); 
+      toast.error("Onaylama başarısız.");
+    }
   };
 
   const yeniKullaniciEkle = async (e) => {
@@ -474,9 +501,12 @@ function App() {
       if (response.ok) {
         setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
         verileriGetir();
-        alert("Kullanıcı başarıyla eklendi.");
+        toast.success("Kullanıcı başarıyla eklendi.");
       }
-    } catch (error) { console.error("Kullanıcı ekleme hatası:", error); }
+    } catch (error) { 
+      console.error("Kullanıcı ekleme hatası:", error); 
+      toast.error("Kullanıcı eklenemedi.");
+    }
   };
 
   // --- Benzersiz Gider Kategorilerini Çıkarma ---
@@ -542,8 +572,11 @@ function App() {
         });
       }
       verileriGetir();
-      alert("Aylık raporlar başarıyla arşivlendi!");
-    } catch (error) { console.error("Arşivleme hatası:", error); }
+      toast.success("Aylık raporlar başarıyla arşivlendi!");
+    } catch (error) { 
+      console.error("Arşivleme hatası:", error); 
+      toast.error("Arşivleme başarısız.");
+    }
   };
 
   const excelIndir = () => {
@@ -554,6 +587,7 @@ function App() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "AylikRapor");
     XLSX.writeFile(workbook, "Aylik_Finansal_Rapor.xlsx");
+    toast.success("Excel raporu indirildi.");
   };
 
   const pdfIndir = () => {
@@ -567,11 +601,13 @@ function App() {
     });
     doc.autoTable({ head: [tableColumn], body: tableRows, startY: 25 });
     doc.save("Aylik_Finansal_Rapor.pdf");
+    toast.success("PDF raporu indirildi.");
   };
 
   if (!girisYapanKullanici) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+        <Toaster position="top-right" />
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold text-slate-800">Kasa Takip Sistemi</h1>
@@ -611,6 +647,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
+      <Toaster position="top-right" />
       <div className="max-w-5xl mx-auto space-y-6">
         
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
