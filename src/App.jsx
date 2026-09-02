@@ -20,12 +20,14 @@ function App() {
   const [duzenlenenGelirId, setDuzenlenenGelirId] = useState(null);
   const [duzenlenenGiderId, setDuzenlenenGiderId] = useState(null);
 
-  // --- FİLTRELEME STATE'LERİ ---
-  const [aramaMetni, setAramaMetni] = useState('');
-  const [baslangicTarihi, setBaslangicTarihi] = useState('');
-  const [bitisTarihi, setBitisTarihi] = useState('');
+  // --- İŞLEMLER SEKME ARAMASI ---
+  const [islemArama, setIslemArama] = useState('');
 
-  // --- RAPOR AKORDİYON STATE'İ ---
+  // --- RAPORLAR FİLTRELEME STATE'LERİ ---
+  const [raporArama, setRaporArama] = useState('');
+  const [raporBaslangic, setRaporBaslangic] = useState('');
+  const [raporBitis, setRaporBitis] = useState('');
+  const [raporKategori, setRaporKategori] = useState('');
   const [secilenAy, setSecilenAy] = useState(null);
 
   // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
@@ -471,13 +473,48 @@ function App() {
     } catch (error) { console.error("Kullanıcı ekleme hatası:", error); }
   };
 
-  // --- Raporlama & Hesaplamalar ---
-  const toplamGelir = gelirler.reduce((toplam, item) => toplam + item.tutar, 0);
-  const toplamGider = giderler.reduce((toplam, item) => toplam + item.tutar, 0);
-  const netBakiye = toplamGelir - toplamGider;
+  // --- Benzersiz Gider Kategorilerini Çıkarma ---
+  const giderKategorileri = [...new Set(giderler.map(g => g.kategori).filter(Boolean))];
 
+  // --- İŞLEMLER İÇİN YEREL FİLTRELEME ---
+  const islemIcinGelirler = gelirler.filter(item => 
+    (item.kaynak || '').toLowerCase().includes(islemArama.toLowerCase()) ||
+    (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
+  );
+  
+  const islemIcinGiderler = giderler.filter(item => 
+    (item.kimeOdendi || '').toLowerCase().includes(islemArama.toLowerCase()) ||
+    (item.kategori || '').toLowerCase().includes(islemArama.toLowerCase()) ||
+    (item.aciklama || '').toLowerCase().includes(islemArama.toLowerCase())
+  );
+
+  // --- RAPORLAR İÇİN DETAYLI FİLTRELEME ---
+  const raporTarihFiltresi = (tarih) => {
+    if (!raporBaslangic && !raporBitis) return true;
+    const itemDate = new Date(tarih).toISOString().split('T')[0];
+    if (raporBaslangic && itemDate < raporBaslangic) return false;
+    if (raporBitis && itemDate > raporBitis) return false;
+    return true;
+  };
+
+  const raporIcinGelirler = gelirler.filter(item => {
+    const metinUyumu = (item.kaynak || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(raporArama.toLowerCase());
+    const kategoriUyumu = raporKategori ? false : true; // Gider kategorisi seçiliyse gelirleri gizle
+    return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
+  });
+
+  const raporIcinGiderler = giderler.filter(item => {
+    const metinUyumu = (item.kimeOdendi || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.kategori || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(raporArama.toLowerCase());
+    const kategoriUyumu = raporKategori ? item.kategori === raporKategori : true;
+    return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
+  });
+
+  // --- RAPORLARI OLUŞTURMA ---
   const aylikRapor = {};
-  [...gelirler.map(i => ({ ...i, tip: 'gelir' })), ...giderler.map(i => ({ ...i, tip: 'gider' }))].forEach(item => {
+  [...raporIcinGelirler.map(i => ({ ...i, tip: 'gelir' })), ...raporIcinGiderler.map(i => ({ ...i, tip: 'gider' }))].forEach(item => {
     const tarihObj = new Date(item.tarih);
     const ayYil = tarihObj.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
     if (!aylikRapor[ayYil]) aylikRapor[ayYil] = { gelir: 0, gider: 0, detaylar: [] };
@@ -485,6 +522,11 @@ function App() {
     else aylikRapor[ayYil].gider += item.tutar;
     aylikRapor[ayYil].detaylar.push(item);
   });
+
+  // Üst Bilgi Kartları İçin Genel Toplamlar (Filtresiz)
+  const toplamGelir = gelirler.reduce((toplam, item) => toplam + item.tutar, 0);
+  const toplamGider = giderler.reduce((toplam, item) => toplam + item.tutar, 0);
+  const netBakiye = toplamGelir - toplamGider;
 
   const raporlariArsivle = async () => {
     try {
@@ -521,28 +563,6 @@ function App() {
     doc.autoTable({ head: [tableColumn], body: tableRows, startY: 25 });
     doc.save("Aylik_Finansal_Rapor.pdf");
   };
-
-  // --- TARİH VE METİN FİLTRELEME FONKSİYONLARI ---
-  const tarihFiltresiUygula = (itemTarih) => {
-    if (!baslangicTarihi && !bitisTarihi) return true;
-    const itemDate = new Date(itemTarih).toISOString().split('T')[0];
-    if (baslangicTarihi && itemDate < baslangicTarihi) return false;
-    if (bitisTarihi && itemDate > bitisTarihi) return false;
-    return true;
-  };
-
-  const filtrelenmisGelirler = gelirler.filter(item => {
-    const metinUyumu = (item.kaynak || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
-                       (item.aciklama || '').toLowerCase().includes(aramaMetni.toLowerCase());
-    return metinUyumu && tarihFiltresiUygula(item.tarih);
-  });
-
-  const filtrelenmisGiderler = giderler.filter(item => {
-    const metinUyumu = (item.kimeOdendi || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
-                       (item.kategori || '').toLowerCase().includes(aramaMetni.toLowerCase()) ||
-                       (item.aciklama || '').toLowerCase().includes(aramaMetni.toLowerCase());
-    return metinUyumu && tarihFiltresiUygula(item.tarih);
-  });
 
   if (!girisYapanKullanici) {
     return (
@@ -728,42 +748,19 @@ function App() {
               </div>
             </div>
 
-            {/* GENEL FİLTRELEME ÇUBUĞU */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+            {/* İŞLEMLER SEKME ARAMA KUTUSU */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+              <h2 className="text-lg font-semibold text-slate-700">Son İşlem Kayıtları</h2>
               <input
-                type="text" placeholder="Arama yap (Firma, kaynak, kategori, açıklama)..." 
-                value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)}
-                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-80"
+                type="text" placeholder="Tablolarda ara..."
+                value={islemArama} onChange={(e) => setIslemArama(e.target.value)}
+                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-72"
               />
-              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <span>Başlangıç:</span>
-                  <input 
-                    type="date" value={baslangicTarihi} onChange={(e) => setBaslangicTarihi(e.target.value)}
-                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
-                  />
-                </div>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <span>Bitiş:</span>
-                  <input 
-                    type="date" value={bitisTarihi} onChange={(e) => setBitisTarihi(e.target.value)}
-                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
-                  />
-                </div>
-                {(baslangicTarihi || bitisTarihi || aramaMetni) && (
-                  <button 
-                    onClick={() => { setBaslangicTarihi(''); setBitisTarihi(''); setAramaMetni(''); }}
-                    className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
-                  >
-                    Filtreleri Temizle
-                  </button>
-                )}
-              </div>
             </div>
 
             {/* GELİR LİSTESİ TABLOSU */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-lg font-semibold text-slate-700">Kasa Gelir Listesi</h2>
+              <h2 className="text-md font-semibold text-slate-600">Kasa Gelir Listesi</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -776,10 +773,10 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
-                    {filtrelenmisGelirler.length === 0 ? (
+                    {islemIcinGelirler.length === 0 ? (
                       <tr><td colSpan="5" className="py-4 text-center text-slate-400">Gelir kaydı bulunamadı.</td></tr>
                     ) : (
-                      filtrelenmisGelirler.map((item) => (
+                      islemIcinGelirler.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium text-slate-800">{item.kaynak}</td>
@@ -799,7 +796,7 @@ function App() {
 
             {/* GİDER LİSTESİ TABLOSU */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
-              <h2 className="text-lg font-semibold text-slate-700">Kasa Gider Listesi</h2>
+              <h2 className="text-md font-semibold text-slate-600">Kasa Gider Listesi</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -813,10 +810,10 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-600 text-sm">
-                    {filtrelenmisGiderler.length === 0 ? (
+                    {islemIcinGiderler.length === 0 ? (
                       <tr><td colSpan="6" className="py-4 text-center text-slate-400">Kayıt bulunamadı.</td></tr>
                     ) : (
-                      filtrelenmisGiderler.map((item) => (
+                      islemIcinGiderler.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium text-slate-800">{item.kimeOdendi}</td>
@@ -920,6 +917,49 @@ function App() {
 
         {aktifSekme === 'raporlar' && girisYapanKullanici.rol !== 'Personel' && (
           <div className="space-y-6">
+            
+            {/* RAPORLAR SAYFASINA ALINAN GENEL FİLTRELEME ÇUBUĞU */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+              <input
+                type="text" placeholder="Raporlarda ara..." 
+                value={raporArama} onChange={(e) => setRaporArama(e.target.value)}
+                className="border border-slate-200 rounded-lg p-2 text-sm w-full md:w-64"
+              />
+              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                <select 
+                  value={raporKategori} onChange={(e) => setRaporKategori(e.target.value)}
+                  className="border border-slate-200 rounded-lg p-1.5 text-sm outline-none cursor-pointer"
+                >
+                  <option value="">Tüm Kategoriler</option>
+                  {giderKategorileri.map((kat, idx) => (
+                    <option key={idx} value={kat}>{kat}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Başlangıç:</span>
+                  <input 
+                    type="date" value={raporBaslangic} onChange={(e) => setRaporBaslangic(e.target.value)}
+                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Bitiş:</span>
+                  <input 
+                    type="date" value={raporBitis} onChange={(e) => setRaporBitis(e.target.value)}
+                    className="border border-slate-200 rounded-lg p-1.5 text-sm"
+                  />
+                </div>
+                {(raporBaslangic || raporBitis || raporArama || raporKategori) && (
+                  <button 
+                    onClick={() => { setRaporBaslangic(''); setRaporBitis(''); setRaporArama(''); setRaporKategori(''); }}
+                    className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-slate-700">Aylık Finansal Rapor & Detaylı Günlük Görünüm</h2>
@@ -932,10 +972,10 @@ function App() {
 
               <div className="space-y-3">
                 {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
-                  <p className="text-center text-slate-400 py-4">İşlem kaydı bulunan ay bulunmuyor.</p>
+                  <p className="text-center text-slate-400 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
                 ) : (
                   Object.entries(aylikRapor)
-                    .filter(([_, veri]) => veri.detaylar.length > 0) // Sadece içinde işlem olan ayları göster
+                    .filter(([_, veri]) => veri.detaylar.length > 0)
                     .map(([ayYil, veri]) => {
                       const netDurum = veri.gelir - veri.gider;
                       const isOpen = secilenAy === ayYil;
