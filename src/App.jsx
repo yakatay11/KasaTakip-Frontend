@@ -770,11 +770,10 @@ function App() {
     }
   };
 
-  // --- GÜNCELLENEN EXCEL İNDİRME FONKSİYONU (TÜM DETAYLAR DAHİL) ---
+  // --- GÜNCELLENEN EXCEL İNDİRME FONKSİYONU (POZİTİF SAYILAR) ---
   const excelIndir = () => {
     const veriDizisi = [];
     
-    // Her bir filtrelenmiş gelir ve gider kaydını tekil satırlar olarak ekleyelim
     raporIcinGelirler.forEach(item => {
       veriDizisi.push({
         "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
@@ -782,7 +781,7 @@ function App() {
         "Kaynak / Firma": item.kaynak,
         "Kategori": "-",
         "Açıklama": item.aciklama || "-",
-        "Tutar (TL)": item.tutar
+        "Tutar (TL)": item.tutar // Her zaman pozitif
       });
     });
 
@@ -793,7 +792,7 @@ function App() {
         "Kaynak / Firma": item.kimeOdendi,
         "Kategori": item.kategori || "Diğer",
         "Açıklama": item.aciklama || "-",
-        "Tutar (TL)": -item.tutar // Giderler eksi olarak da ifade edilebilir
+        "Tutar (TL)": item.tutar // Pozitif yapıldı (- işareti kaldırıldı)
       });
     });
 
