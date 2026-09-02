@@ -61,12 +61,13 @@ function App() {
   const [islemArama, setIslemArama] = useState('');
   const [kasaSiralama, setKasaSiralama] = useState('yeni');
 
-  // --- RAPORLAR FİLTRELEME STATE'LERİ ---
+  // --- RAPORLAR FİLTRELEME VE AKORDİYON STATE'LERİ ---
   const [raporArama, setRaporArama] = useState('');
   const [raporBaslangic, setRaporBaslangic] = useState('');
   const [raporBitis, setRaporBitis] = useState('');
   const [raporKategori, setRaporKategori] = useState('');
   const [secilenAy, setSecilenAy] = useState(null);
+  const [secilenGun, setSecilenGun] = useState(null);
 
   // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
   const [giderForm, setGiderForm] = useState(() => {
@@ -1247,6 +1248,7 @@ function App() {
                 </div>
               </div>
 
+              {/* AYLIK RAPORLAR AKORDİYONU */}
               <div className="space-y-3">
                 {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
                   <p className="text-center text-slate-500 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
@@ -1255,13 +1257,14 @@ function App() {
                     .filter(([_, veri]) => veri.detaylar.length > 0)
                     .map(([ayYil, veri]) => {
                       const netDurum = veri.gelir - veri.gider;
-                      const isOpen = secilenAy === ayYil;
-                      const siraliDetaylar = [...veri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+                      const isAyOpen = secilenAy === ayYil;
 
                       return (
                         <div key={ayYil} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-xl overflow-hidden shadow-sm transition`}>
+                          
+                          {/* AY SATIRI */}
                           <div 
-                            onClick={() => setSecilenAy(isOpen ? null : ayYil)}
+                            onClick={() => { setSecilenAy(isAyOpen ? null : ayYil); setSecilenGun(null); }}
                             className={`${darkMode ? 'bg-slate-900 hover:bg-slate-850' : 'bg-slate-50 hover:bg-slate-100'} p-4 flex justify-between items-center cursor-pointer transition`}
                           >
                             <div className="flex items-center gap-3">
@@ -1276,54 +1279,104 @@ function App() {
                               <span className={`font-bold ${netDurum >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                                 Net: {netDurum.toLocaleString('tr-TR')} TL
                               </span>
-                              <span className="text-slate-400 text-xs font-bold">{isOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                              <span className="text-slate-400 text-xs font-bold">{isAyOpen ? '▲ Kapat' : '▼ Detay'}</span>
                             </div>
                           </div>
 
-                          {isOpen && (
-                            <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-4`}>
-                              <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-3 rounded-lg border flex justify-between items-center text-xs text-slate-400`}>
-                                <span>Rapor Dönemi: <strong className="uppercase text-slate-200">{ayYil}</strong></span>
-                                <span>Toplam İşlem Hacmi: <strong className="text-slate-200">{veri.detaylar.length} adet</strong></span>
-                              </div>
+                          {/* AYIN İÇİNDEKİ GÜNLER LİSTESİ */}
+                          {isAyOpen && (
+                            <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-3`}>
+                              
+                              {(() => {
+                                // Detayları günlerine göre gruplama
+                                const gunlerMap = {};
+                                veri.detaylar.forEach(item => {
+                                  const gunKey = new Date(item.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+                                  if (!gunlerMap[gunKey]) gunlerMap[gunKey] = { gelir: 0, gider: 0, detaylar: [] };
+                                  if (item.tip === 'gelir') gunlerMap[gunKey].gelir += item.tutar;
+                                  else gunlerMap[gunKey].gider += item.tutar;
+                                  gunlerMap[gunKey].detaylar.push(item);
+                                });
 
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                  <thead>
-                                    <tr className={`border-b ${tableHeader} text-xs`}>
-                                      <th className="pb-2 font-medium">Tarih</th>
-                                      <th className="pb-2 font-medium">İşlem Türü</th>
-                                      <th className="pb-2 font-medium">Kaynak / Firma</th>
-                                      <th className="pb-2 font-medium">Kategori / Açıklama</th>
-                                      <th className="pb-2 font-medium text-right">Tutar</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className={`divide-y ${tableDivider} text-sm`}>
-                                    {siraliDetaylar.map((item, index) => (
-                                      <tr key={index} className={tableRowHover}>
-                                        <td className="py-2.5 text-xs text-slate-400">{new Date(item.tarih).toLocaleDateString()}</td>
-                                        <td className="py-2.5">
-                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                                return Object.entries(gunlerMap).map(([gunKey, gunVeri]) => {
+                                  const gunNet = gunVeri.gelir - gunVeri.gider;
+                                  const isGunOpen = secilenGun === `${ayYil}-${gunKey}`;
+                                  const siraliGunDetaylari = [...gunVeri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
+                                  return (
+                                    <div key={gunKey} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-lg overflow-hidden`}>
+                                      
+                                      {/* GÜN SATIRI */}
+                                      <div 
+                                        onClick={() => setSecilenGun(isGunOpen ? null : `${ayYil}-${gunKey}`)}
+                                        className={`${darkMode ? 'bg-slate-800/60 hover:bg-slate-800' : 'bg-slate-50 hover:bg-slate-100'} p-3 flex justify-between items-center cursor-pointer transition text-xs`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold">📅 {gunKey}</span>
+                                          <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-medium">
+                                            {gunVeri.detaylar.length} İşlem
                                           </span>
-                                        </td>
-                                        <td className="py-2.5 font-medium">{item.kaynak || item.kimeOdendi}</td>
-                                        <td className="py-2.5 text-xs text-slate-400">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
-                                        <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
-                                          {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <span className="text-emerald-500 font-semibold">Gelir: +{gunVeri.gelir.toLocaleString('tr-TR')} TL</span>
+                                          <span className="text-red-500 font-semibold">Gider: -{gunVeri.gider.toLocaleString('tr-TR')} TL</span>
+                                          <span className={`font-bold ${gunNet >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                            Net: {gunNet.toLocaleString('tr-TR')} TL
+                                          </span>
+                                          <span className="text-slate-400 font-bold">{isGunOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                                        </div>
+                                      </div>
+
+                                      {/* GÜNÜN İŞLEM DETAYLARI TABLOSU */}
+                                      {isGunOpen && (
+                                        <div className={`p-3 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'}`}>
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                              <thead>
+                                                <tr className={`border-b ${tableHeader} text-xs`}>
+                                                  <th className="pb-2 font-medium">Saat</th>
+                                                  <th className="pb-2 font-medium">İşlem Türü</th>
+                                                  <th className="pb-2 font-medium">Kaynak / Firma</th>
+                                                  <th className="pb-2 font-medium">Kategori / Açıklama</th>
+                                                  <th className="pb-2 font-medium text-right">Tutar</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className={`divide-y ${tableDivider} text-sm`}>
+                                                {siraliGunDetaylari.map((item, index) => (
+                                                  <tr key={index} className={tableRowHover}>
+                                                    <td className="py-2.5 text-xs text-slate-400">{new Date(item.tarih).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</td>
+                                                    <td className="py-2.5">
+                                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                                                      </span>
+                                                    </td>
+                                                    <td className="py-2.5 font-medium">{item.kaynak || item.kimeOdendi}</td>
+                                                    <td className="py-2.5 text-xs text-slate-400">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
+                                                    <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                      {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                    </div>
+                                  );
+                                });
+                              })()}
+
                             </div>
                           )}
+
                         </div>
                       );
                     })
                 )}
               </div>
+
             </div>
           </div>
         )}
