@@ -770,15 +770,43 @@ function App() {
     }
   };
 
+  // --- GÜNCELLENEN EXCEL İNDİRME FONKSİYONU (TÜM DETAYLAR DAHİL) ---
   const excelIndir = () => {
-    const veriDizisi = Object.entries(aylikRapor).map(([ay, veri]) => ({
-      "Ay / Yıl": ay, "Toplam Gelir (TL)": veri.gelir, "Toplam Gider (TL)": veri.gider, "Net Durum (TL)": veri.gelir - veri.gider
-    }));
+    const veriDizisi = [];
+    
+    // Her bir filtrelenmiş gelir ve gider kaydını tekil satırlar olarak ekleyelim
+    raporIcinGelirler.forEach(item => {
+      veriDizisi.push({
+        "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
+        "İşlem Türü": "Gelir",
+        "Kaynak / Firma": item.kaynak,
+        "Kategori": "-",
+        "Açıklama": item.aciklama || "-",
+        "Tutar (TL)": item.tutar
+      });
+    });
+
+    raporIcinGiderler.forEach(item => {
+      veriDizisi.push({
+        "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
+        "İşlem Türü": "Gider",
+        "Kaynak / Firma": item.kimeOdendi,
+        "Kategori": item.kategori || "Diğer",
+        "Açıklama": item.aciklama || "-",
+        "Tutar (TL)": -item.tutar // Giderler eksi olarak da ifade edilebilir
+      });
+    });
+
+    if (veriDizisi.length === 0) {
+      toast.error("Dışa aktarılacak işlem bulunamadı.");
+      return;
+    }
+
     const worksheet = XLSX.utils.json_to_sheet(veriDizisi);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "AylikRapor");
-    XLSX.writeFile(workbook, "Aylik_Finansal_Rapor.xlsx");
-    toast.success("Excel raporu indirildi.");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Detayli_Finansal_Rapor");
+    XLSX.writeFile(workbook, "Detayli_Finansal_Rapor.xlsx");
+    toast.success("Detaylı Excel raporu indirildi.");
   };
 
   const pdfIndir = () => {
@@ -1288,7 +1316,6 @@ function App() {
                             <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-3`}>
                               
                               {(() => {
-                                // Detayları günlerine göre gruplama
                                 const gunlerMap = {};
                                 veri.detaylar.forEach(item => {
                                   const gunKey = new Date(item.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
