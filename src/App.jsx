@@ -271,49 +271,44 @@ function App() {
     return () => clearTimeout(timer);
   }, [talepForm, talepTaslakId, girisYapanKullanici]);
 
-  // --- FİŞ OKUTMA (OCR) FONKSİYONU ---
-  const fisOkut = async (e) => {
+  // ==========================================
+  // ORTAK FİŞ OKUTMA (OCR) FONKSİYONU
+  // ==========================================
+  const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
     const toastId = toast.loading("📸 Fiş yapay zeka ile analiz ediliyor, lütfen bekleyin...");
     
     try {
-      // Türkçe dil paketi ile görseli metne çeviriyoruz
       const { data: { text } } = await Tesseract.recognize(dosya, 'tur');
-      
-      // Satırları ayır ve boş olanları temizle
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-      
-      // Genellikle fişin en üstündeki ilk anlamlı satır firma adıdır
       const firmaAdi = satirlar[0] ? satirlar[0].substring(0, 35) : '';
 
-      // Regex (Düzenli İfade) ile fişin içindeki TOPLAM veya TUTAR yazan rakamı bulma
       const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L)\s*[:=]?\s*[*]?\s*(\d+[.,]\d{2})/i);
       let bulunanTutar = '';
-      
       if (tutarArama && tutarArama[1]) {
-        // Virgüllü tutarı noktaya çevir (yazılımın anlaması için)
         bulunanTutar = tutarArama[1].replace(',', '.');
       }
 
-      // Formu otomatik doldur
-      setGiderForm({
-        ...giderForm,
+      setHedefForm({
+        ...hedefForm,
         kimeOdenecek: firmaAdi,
         tutar: bulunanTutar,
         aciklama: 'Kameradan otomatik okundu',
       });
 
       toast.success("Fiş başarıyla okundu ve form dolduruldu!", { id: toastId });
-
     } catch (error) {
       console.error("OCR Hatası:", error);
       toast.error("Fiş okunamadı, lütfen daha net çekmeyi deneyin.", { id: toastId });
     }
   };
 
-  // --- TEMEL FONKSİYONLAR (OTOMATİK KURTARMA MANTIĞI EKLENDİ) ---
+  // --- FİŞ OKUTMA (Sadece Giderler İçin) ---
+  const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
+
+  // --- TEMEL FONKSİYONLAR ---
   const verileriGetir = async () => {
     try {
       const giderRes = await fetch(`${API_URL}/Gider`);
@@ -328,84 +323,14 @@ function App() {
       if (giderRes.ok) apiGiderler = await giderRes.json();
       if (gelirRes.ok) apiGelirler = await gelirRes.json();
 
-      const yerelGiderler = JSON.parse(localStorage.getItem('kasa_giderler') || '[]');
-      const yerelGelirler = JSON.parse(localStorage.getItem('kasa_gelirler') || '[]');
-
-      // EĞER RENDER SUNUCUSU SIFIRLANMIŞSA (Yereldeki kayıt sayısı sunucudan fazlaysa)
-      const sunucuSifirlanmis = (apiGiderler.length < yerelGiderler.length) || (apiGelirler.length < yerelGelirler.length);
-
-      if (sunucuSifirlanmis) {
-        toast.loading("Sunucu uyku modunda sıfırlanmış. Kayıplarınız yerel yedekten kurtarılıyor...", { id: 'sync', duration: 5000 });
-        
-        // Önce verileri hemen ekranda göster
-        setGiderler(yerelGiderler);
-        setGelirler(yerelGelirler);
-
-        // Giderleri arka planda sunucuya yeniden kaydet
-        if (apiGiderler.length < yerelGiderler.length) {
-          for (const item of yerelGiderler) {
-            const varMi = apiGiderler.find(a => a.tutar === item.tutar && a.aciklama === item.aciklama);
-            if (!varMi) {
-              await fetch(`${API_URL}/Gider`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  kimeOdendi: item.kimeOdendi || item.isimVeyaKaynak || '-',
-                  kategori: item.kategori || 'Diğer',
-                  tutar: parseFloat(item.tutar) || 0,
-                  aciklama: item.aciklama || 'Kurtarılan Kayıt',
-                  tarih: item.tarih,
-                  islemiYapanAdminId: girisYapanKullanici?.id || 1
-                })
-              });
-            }
-          }
-        }
-
-        // Gelirleri arka planda sunucuya yeniden kaydet
-        if (apiGelirler.length < yerelGelirler.length) {
-          for (const item of yerelGelirler) {
-            const varMi = apiGelirler.find(a => a.tutar === item.tutar && a.aciklama === item.aciklama);
-            if (!varMi) {
-              await fetch(`${API_URL}/Gelir`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  kaynak: item.kaynak || item.isimVeyaKaynak || '-',
-                  tutar: parseFloat(item.tutar) || 0,
-                  aciklama: item.aciklama || 'Kurtarılan Kayıt',
-                  tarih: item.tarih
-                })
-              });
-            }
-          }
-        }
-        
-        toast.success("Tüm verileriniz başarıyla kurtarıldı!", { id: 'sync' });
-        
-        // Kurtarılan verilerin yeni ID'lerini almak için tekrar çek
-        const guncelGider = await fetch(`${API_URL}/Gider`);
-        const guncelGelir = await fetch(`${API_URL}/Gelir`);
-        if (guncelGider.ok) setGiderler(await guncelGider.json());
-        if (guncelGelir.ok) setGelirler(await guncelGelir.json());
-
-      } else {
-        // Normal Çalışma: Sunucudaki veriyi baz al
-        setGiderler(apiGiderler);
-        setGelirler(apiGelirler);
-      }
-
+      setGiderler(apiGiderler);
+      setGelirler(apiGelirler);
       if (raporRes.ok) setArşivRaporlar(await raporRes.json());
       if (talepRes.ok) setGiderTalepleri(await talepRes.json());
       if (kulRes.ok) setKullanicilar(await kulRes.json());
 
     } catch (error) { 
       console.error("Veri çekme hatası:", error); 
-      // İnternet kopsa bile yerel verileri ekranda göster
-      const yGider = JSON.parse(localStorage.getItem('kasa_giderler') || '[]');
-      const yGelir = JSON.parse(localStorage.getItem('kasa_gelirler') || '[]');
-      if (yGider.length > 0) setGiderler(yGider);
-      if (yGelir.length > 0) setGelirler(yGelir);
     }
   };
 
@@ -490,11 +415,14 @@ function App() {
   const kullaniciKaydetVeyaGuncelle = async (e) => {
     e.preventDefault();
     try {
+      const gonderilecekVeri = { ...yeniKullaniciForm };
+      if (!gonderilecekVeri.sifre) delete gonderilecekVeri.sifre;
+
       if (duzenlenenKullaniciId) {
         const response = await fetch(`${API_URL}/Kullanici/${duzenlenenKullaniciId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(yeniKullaniciForm)
+          body: JSON.stringify(gonderilecekVeri)
         });
         if (response.ok) {
           toast.success("Kullanıcı başarıyla güncellendi.");
@@ -637,7 +565,6 @@ function App() {
   const giderSil = async (id) => {
     if (!window.confirm("Bu gideri silmek istediğinize emin misiniz?")) return;
     try {
-      // Oto-kurtarmayı yanlışlıkla tetiklememek için önce yerel depoyu temizle
       const guncelListe = giderler.filter(g => g.id !== id && g.gercekId !== id);
       setGiderler(guncelListe);
       localStorage.setItem('kasa_giderler', JSON.stringify(guncelListe));
@@ -657,7 +584,7 @@ function App() {
       } else {
         const errData = await response.json().catch(() => ({}));
         toast.error(errData.message || "Bu işlem için yetkiniz yok.");
-        verileriGetir(); // Başarısız olursa orijinali geri yükle
+        verileriGetir();
       }
     } catch (error) { 
       console.error("Silme hatası:", error); 
@@ -722,7 +649,6 @@ function App() {
   const gelirSil = async (id) => {
     if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
-      // Oto-kurtarmayı yanlışlıkla tetiklememek için önce yerel depoyu temizle
       const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
       setGelirler(guncelListe);
       localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
@@ -739,7 +665,7 @@ function App() {
         toast.success("Gelir silindi.");
       } else {
         toast.error("Gelir silinemedi.");
-        verileriGetir(); // Başarısız olursa orijinali geri yükle
+        verileriGetir();
       }
     } catch (error) { 
       console.error("Gelir silme hatası:", error); 
@@ -799,7 +725,6 @@ function App() {
     }
   };
 
-  // --- BUGÜNÜN TARİHİNİ KONTROL ETME YARDIMCISI ---
   const bugunMu = (tarihStr) => {
     if (!tarihStr) return false;
     const d = new Date(tarihStr);
@@ -809,7 +734,6 @@ function App() {
            d.getFullYear() === bugun.getFullYear();
   };
 
-  // --- BİRLEŞTİRİLMİŞ TEK KASA HAREKETLERİ LİSTESİ (SADECE BUGÜN YAZILANLAR) ---
   const tumKasaListesi = [
     ...gelirler.map(g => ({
       id: `gelir-${g.id}`,
@@ -849,14 +773,12 @@ function App() {
     return 0;
   });
 
-  // --- İŞLEM GEÇMİŞİ (AUDIT TRAIL) LİSTESİ ---
   const tumIslemGecmisi = [
     ...gelirler.map(g => ({ id: `gelir-${g.id}`, tur: 'Gelir Ekleme', aciklama: `${g.kaynak} - ${g.aciklama || '-'}`, tutar: g.tutar, tip: 'gelir', tarih: g.tarih })),
     ...giderler.map(gi => ({ id: `gider-${gi.id}`, tur: 'Gider Ekleme', aciklama: `${gi.kimeOdendi} (${gi.kategori}) - ${gi.aciklama || '-'}`, tutar: gi.tutar, tip: 'gider', tarih: gi.tarih })),
     ...giderTalepleri.map(t => ({ id: `talep-${t.id}`, tur: `Talep (${t.durum})`, aciklama: `${t.kimeOdenecek} (${t.kategori}) - ${t.aciklama || '-'}`, tutar: t.tutar, tip: 'talep', tarih: t.tarih }))
   ].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
 
-  // --- RAPORLAR İÇİN DETAYLI FİLTRELEME ---
   const raporTarihFiltresi = (tarih) => {
     if (!raporBaslangic && !raporBitis) return true;
     const itemDate = new Date(tarih).toISOString().split('T')[0];
@@ -880,7 +802,6 @@ function App() {
     return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
   });
 
-  // --- AKILLI ÖZET HESAPLAMALARI ---
   const raporToplamGelir = raporIcinGelirler.reduce((acc, i) => acc + i.tutar, 0);
   const raporToplamGider = raporIcinGiderler.reduce((acc, i) => acc + i.tutar, 0);
   const kategoriHarcamalari = raporIcinGiderler.reduce((acc, item) => {
@@ -890,7 +811,6 @@ function App() {
   }, {});
   const enYuksekKategori = Object.entries(kategoriHarcamalari).reduce((max, curr) => curr[1] > (max[1] || 0) ? curr : max, [null, 0]);
 
-  // --- RAPORLARI OLUŞTURMA ---
   const aylikRapor = {};
   [...raporIcinGelirler.map(i => ({ ...i, tip: 'gelir' })), ...raporIcinGiderler.map(i => ({ ...i, tip: 'gider' }))].forEach(item => {
     const tarihObj = new Date(item.tarih);
@@ -921,10 +841,8 @@ function App() {
     }
   };
 
-  // --- EXCEL İNDİRME ---
   const excelIndir = () => {
     const veriDizisi = [];
-    
     raporIcinGelirler.forEach(item => {
       veriDizisi.push({
         "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
@@ -1158,7 +1076,7 @@ function App() {
                     <input
                       type="file"
                       accept="image/*"
-                      capture="environment" // Mobilde direkt arka kamerayı açar
+                      capture="environment"
                       onChange={fisOkut}
                       className="hidden"
                       id="kamera-yukle"
@@ -1293,13 +1211,32 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ */}
+        {/* TALEPLER SEKMESİ (PERSONEL İÇİN FİŞ OKUTMA EKLENDİ) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border max-w-xl mx-auto transition-colors`}>
-                <h2 className="text-lg font-semibold mb-4">Yeni Gelir/Gider Talebi Oluştur {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
+                <h2 className="text-lg font-semibold mb-4">Yeni Gelir/Gider Talebi Oluştur & Fiş Okut {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
                 <form onSubmit={talepEkle} className="space-y-4">
+                  
+                  {/* PERSONEL İÇİN KANERAYLA FİŞ OKUTMA BUTONU */}
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => fisOkutGenel(e, talepForm, setTalepForm)}
+                      className="hidden"
+                      id="kamera-talep"
+                    />
+                    <label 
+                      htmlFor="kamera-talep" 
+                      className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      📸 Kamerayla Fiş Okut
+                    </label>
+                  </div>
+
                   <input
                     type="text" placeholder="Kime Ödenecek / Firma"
                     value={talepForm.kimeOdenecek} onChange={(e) => setTalepForm({ ...talepForm, kimeOdenecek: e.target.value })}
@@ -1382,7 +1319,6 @@ function App() {
         {aktifSekme === 'raporlar' && girisYapanKullanici.rol !== 'Personel' && (
           <div className="space-y-6">
             
-            {/* AKILLI ÖZET KARTI */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
               <div>
                 <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">💡 Akıllı Finansal Özet</h3>
@@ -1393,7 +1329,6 @@ function App() {
               </div>
             </div>
 
-            {/* FİLTRELEME ÇUBUĞU */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4 items-center justify-between transition-colors`}>
               <input
                 type="text" placeholder="Raporlarda ara..." 
@@ -1445,7 +1380,6 @@ function App() {
                 </div>
               </div>
 
-              {/* AYLIK RAPORLAR AKORDİYONU */}
               <div className="space-y-3">
                 {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
                   <p className="text-center text-slate-500 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
@@ -1459,7 +1393,6 @@ function App() {
                       return (
                         <div key={ayYil} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-xl overflow-hidden shadow-sm transition`}>
                           
-                          {/* AY SATIRI */}
                           <div 
                             onClick={() => { setSecilenAy(isAyOpen ? null : ayYil); setSecilenGun(null); }}
                             className={`${darkMode ? 'bg-slate-900 hover:bg-slate-850' : 'bg-slate-50 hover:bg-slate-100'} p-4 flex justify-between items-center cursor-pointer transition`}
@@ -1480,7 +1413,6 @@ function App() {
                             </div>
                           </div>
 
-                          {/* AYIN İÇİNDEKİ GÜNLER LİSTESİ */}
                           {isAyOpen && (
                             <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-3`}>
                               
@@ -1502,7 +1434,6 @@ function App() {
                                   return (
                                     <div key={gunKey} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-lg overflow-hidden`}>
                                       
-                                      {/* GÜN SATIRI */}
                                       <div 
                                         onClick={() => setSecilenGun(isGunOpen ? null : `${ayYil}-${gunKey}`)}
                                         className={`${darkMode ? 'bg-slate-800/60 hover:bg-slate-800' : 'bg-slate-50 hover:bg-slate-100'} p-3 flex justify-between items-center cursor-pointer transition text-xs`}
@@ -1523,7 +1454,6 @@ function App() {
                                         </div>
                                       </div>
 
-                                      {/* GÜNÜN İŞLEM DETAYLARI TABLOSU */}
                                       {isGunOpen && (
                                         <div className={`p-3 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'}`}>
                                           <div className="overflow-x-auto">
@@ -1666,7 +1596,6 @@ function App() {
 
               <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
 
-              {/* KATEGORİ EKLEME YÖNETİMİ */}
               <div>
                 <h2 className="text-lg font-semibold mb-4">Yeni Kategori Ekle</h2>
                 <form onSubmit={yeniKategoriEkle} className="space-y-4">
