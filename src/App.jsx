@@ -223,7 +223,6 @@ function App() {
 
   // ==========================================
   // HIZLANDIRILMIŞ VE KONTROLLÜ FİŞ OKUTMA (OCR) FONKSİYONU
-  // (Otomatik talep oluşturmaz, sadece form alanlarını doldurur)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
@@ -259,7 +258,7 @@ function App() {
     }
   };
 
-  const fisOkut = (e) => fisOkutGenel(e, giderForm, setHedefForm);
+  const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
 
   // --- TEMEL FONKSİYONLAR ---
   const verileriGetir = async () => {
@@ -629,6 +628,7 @@ function App() {
     }
   };
 
+  // --- KONTROLLÜ TALEP OLUŞTURMA ("Bekliyor" statüsü ile başlar) ---
   const talepEkle = async (e) => {
     e.preventDefault();
     if (!talepForm.kimeOdenecek || !talepForm.tutar) return;
@@ -638,32 +638,55 @@ function App() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           talepEdenPersonelId: girisYapanKullanici.id,
-          kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
-          tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
-          tarih: new Date().toISOString()
+          kimeOdenecek: talepForm.kimeOdenecek, 
+          kategori: talepForm.kategori || 'Diğer',
+          tutar: parseFloat(talepForm.tutar), 
+          aciklama: talepForm.aciklama,
+          tarih: new Date().toISOString(),
+          durum: "Bekliyor"
         })
       });
 
       setTalepForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: '' });
       localStorage.removeItem('kasa_talepForm');
       verileriGetir();
-      toast.success("Gelir/Gider talebi başarıyla oluşturuldu ve onaya gönderildi.");
+      toast.success("Talep başarıyla oluşturuldu ve onaya gönderildi.");
     } catch (error) { 
       console.error("Talep oluşturma hatası:", error); 
       toast.error("Talep oluşturulamadı.");
     }
   };
 
+  // --- TALEP ONAYLA ---
   const talepOnayla = async (id) => {
     try {
       const response = await fetch(`${API_URL}/GiderTalebi/${id}/onayla`, { method: 'PUT' });
       if (response.ok) {
         verileriGetir();
         toast.success("Talep onaylandı ve kasaya işlendi.");
+      } else {
+        toast.error("Talep onaylanamadı.");
       }
     } catch (error) { 
       console.error("Talep onaylama hatası:", error); 
       toast.error("Onaylama başarısız.");
+    }
+  };
+
+  // --- TALEP REDDET ---
+  const talepReddet = async (id) => {
+    if (!window.confirm("Bu talebi reddetmek istediğinize emin misiniz?")) return;
+    try {
+      const response = await fetch(`${API_URL}/GiderTalebi/${id}/reddet`, { method: 'PUT' });
+      if (response.ok) {
+        verileriGetir();
+        toast.success("Talep reddedildi.");
+      } else {
+        toast.error("Talep reddedilemedi.");
+      }
+    } catch (error) {
+      console.error("Talep reddetme hatası:", error);
+      toast.error("Reddetme başarısız.");
     }
   };
 
@@ -1150,7 +1173,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (KONTROLLÜ FİŞ OKUTMA) */}
+        {/* TALEPLER SEKMESİ (YÖNETİCİ/MUHASEBE İÇİN ONAY VE REDDET BUTONLARI) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
@@ -1199,7 +1222,7 @@ function App() {
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
                   />
                   <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
-                    Talep Gönder & Onayla
+                    Talep Gönder & Onaya Sun
                   </button>
                 </form>
               </div>
@@ -1218,7 +1241,7 @@ function App() {
                       <th className="pb-3 font-medium">Kategori</th>
                       <th className="pb-3 font-medium">Tutar</th>
                       <th className="pb-3 font-medium">Durum</th>
-                      {girisYapanKullanici.rol === 'Yonetici' && <th className="pb-3 font-medium text-right">İşlem</th>}
+                      {(girisYapanKullanici.rol === 'Yonetici' || girisYapanKullanici.rol === 'Muhasebe') && <th className="pb-3 font-medium text-right">İşlemler</th>}
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
@@ -1232,14 +1255,20 @@ function App() {
                           <td className="py-3">{talep.kategori}</td>
                           <td className="py-3 font-semibold">{talep.tutar.toLocaleString('tr-TR')} TL</td>
                           <td className="py-3">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${talep.durum === 'Onaylandı' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                              {talep.durum}
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              talep.durum === 'Onaylandı' ? 'bg-emerald-500/10 text-emerald-500' : 
+                              talep.durum === 'Reddedildi' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+                            }`}>
+                              {talep.durum || 'Bekliyor'}
                             </span>
                           </td>
-                          {girisYapanKullanici.rol === 'Yonetici' && talep.durum === 'Bekliyor' && (
-                            <td className="py-3 text-right">
-                              <button onClick={() => talepOnayla(talep.id)} className="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition">
-                                Onayla & Kasaya İşle
+                          {(girisYapanKullanici.rol === 'Yonetici' || girisYapanKullanici.rol === 'Muhasebe') && talep.durum !== 'Onaylandı' && talep.durum !== 'Reddedildi' && (
+                            <td className="py-3 text-right space-x-2">
+                              <button onClick={() => talepOnayla(talep.id)} className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-emerald-500/20 transition">
+                                Onayla & İşle
+                              </button>
+                              <button onClick={() => talepReddet(talep.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">
+                                Reddet
                               </button>
                             </td>
                           )}
