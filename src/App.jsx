@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { Toaster, toast } from 'react-hot-toast'
+import Tesseract from 'tesseract.js' // OCR (Fiş okuma) için eklendi
 
 const API_URL = "https://kasa-takip-byfabric.onrender.com/api"; 
 
@@ -269,6 +270,48 @@ function App() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [talepForm, talepTaslakId, girisYapanKullanici]);
+
+  // --- FİŞ OKUTMA (OCR) FONKSİYONU ---
+  const fisOkut = async (e) => {
+    const dosya = e.target.files[0];
+    if (!dosya) return;
+
+    const toastId = toast.loading("📸 Fiş yapay zeka ile analiz ediliyor, lütfen bekleyin...");
+    
+    try {
+      // Türkçe dil paketi ile görseli metne çeviriyoruz
+      const { data: { text } } = await Tesseract.recognize(dosya, 'tur');
+      
+      // Satırları ayır ve boş olanları temizle
+      const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+      
+      // Genellikle fişin en üstündeki ilk anlamlı satır firma adıdır
+      const firmaAdi = satirlar[0] ? satirlar[0].substring(0, 35) : '';
+
+      // Regex (Düzenli İfade) ile fişin içindeki TOPLAM veya TUTAR yazan rakamı bulma
+      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L)\s*[:=]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+      let bulunanTutar = '';
+      
+      if (tutarArama && tutarArama[1]) {
+        // Virgüllü tutarı noktaya çevir (yazılımın anlaması için)
+        bulunanTutar = tutarArama[1].replace(',', '.');
+      }
+
+      // Formu otomatik doldur
+      setGiderForm({
+        ...giderForm,
+        kimeOdenecek: firmaAdi,
+        tutar: bulunanTutar,
+        aciklama: 'Kameradan otomatik okundu',
+      });
+
+      toast.success("Fiş başarıyla okundu ve form dolduruldu!", { id: toastId });
+
+    } catch (error) {
+      console.error("OCR Hatası:", error);
+      toast.error("Fiş okunamadı, lütfen daha net çekmeyi deneyin.", { id: toastId });
+    }
+  };
 
   // --- TEMEL FONKSİYONLAR (OTOMATİK KURTARMA MANTIĞI EKLENDİ) ---
   const verileriGetir = async () => {
@@ -1109,6 +1152,25 @@ function App() {
                   {duzenlenenGiderId ? 'Gideri Düzenle' : `Yeni Gider Ekle ${giderTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
                 </h2>
                 <form onSubmit={giderEkle} className="space-y-4">
+                  
+                  {/* FİŞ OKUTMA (OCR) BÖLÜMÜ */}
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment" // Mobilde direkt arka kamerayı açar
+                      onChange={fisOkut}
+                      className="hidden"
+                      id="kamera-yukle"
+                    />
+                    <label 
+                      htmlFor="kamera-yukle" 
+                      className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      📸 Kamerayla Fiş Okut
+                    </label>
+                  </div>
+
                   <input
                     type="text" placeholder="Kime Ödendi / Firma"
                     value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })}
