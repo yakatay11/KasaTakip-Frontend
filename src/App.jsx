@@ -222,66 +222,20 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // 3. TALEP İÇİN OTOMATİK KAYIT (AUTO-SAVE)
-  // ==========================================
-  useEffect(() => {
-    if (!girisYapanKullanici || girisYapanKullanici.rol !== 'Personel') return;
-    if (!talepForm.kimeOdenecek && !talepForm.tutar && !talepForm.kategori && !talepForm.aciklama) return;
-
-    const timer = setTimeout(async () => {
-      if (talepTaslakId) {
-        try {
-          await fetch(`${API_URL}/GiderTalebi/${talepTaslakId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              talepEdenPersonelId: girisYapanKullanici.id,
-              kimeOdenecek: talepForm.kimeOdenecek || '-',
-              kategori: talepForm.kategori || 'Diğer',
-              tutar: parseFloat(talepForm.tutar) || 0,
-              aciklama: talepForm.aciklama || 'Taslak Kayıt',
-              tarih: new Date().toISOString()
-            })
-          });
-          verileriGetir();
-        } catch (error) { console.error("Taslak güncelleme hatası:", error); }
-      } else {
-        if (talepForm.kimeOdenecek || talepForm.tutar) {
-          try {
-            const response = await fetch(`${API_URL}/GiderTalebi`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                talepEdenPersonelId: girisYapanKullanici.id,
-                kimeOdenecek: talepForm.kimeOdenecek || '-',
-                kategori: talepForm.kategori || 'Diğer',
-                tutar: parseFloat(talepForm.tutar) || 0,
-                aciklama: talepForm.aciklama || 'Taslak Kayıt',
-                tarih: new Date().toISOString()
-              })
-            });
-            if (response.ok) {
-              const data = await response.json();
-              setTalepTaslakId(data.id);
-              localStorage.setItem('kasa_talepTaslakId', data.id);
-              verileriGetir();
-            }
-          } catch (error) { console.error("Taslak oluşturma hatası:", error); }
-        }
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [talepForm, talepTaslakId, girisYapanKullanici]);
-
-  // ==========================================
-  // ORTAK FİŞ OKUTMA (OCR) FONKSİYONU
+  // HIZLANDIRILMIŞ VE KONTROLLÜ FİŞ OKUTMA (OCR) FONKSİYONU
+  // (Otomatik talep oluşturmaz, sadece form alanlarını doldurur)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
-    const toastId = toast.loading("📸 Fiş yapay zeka ile analiz ediliyor, lütfen bekleyin...");
+    const toastId = toast.loading("📸 Fiş hızla analiz ediliyor, lütfen bekleyin...");
     
     try {
-      const { data: { text } } = await Tesseract.recognize(dosya, 'tur');
+      const { data: { text } } = await Tesseract.recognize(dosya, 'tur', {
+        logger: m => {} 
+      });
+
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
       const firmaAdi = satirlar[0] ? satirlar[0].substring(0, 35) : '';
 
@@ -295,17 +249,17 @@ function App() {
         ...hedefForm,
         kimeOdenecek: firmaAdi,
         tutar: bulunanTutar,
-        aciklama: 'Kameradan otomatik okundu',
+        aciklama: 'Kameradan okundu',
       });
 
-      toast.success("Fiş başarıyla okundu ve form dolduruldu!", { id: toastId });
+      toast.success("Fiş okundu! Bilgileri kontrol edip talep gönderebilirsiniz.", { id: toastId });
     } catch (error) {
       console.error("OCR Hatası:", error);
-      toast.error("Fiş okunamadı, lütfen daha net çekmeyi deneyin.", { id: toastId });
+      toast.error("Fiş okunamadı, tekrar deneyin.", { id: toastId });
     }
   };
 
-  const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
+  const fisOkut = (e) => fisOkutGenel(e, giderForm, setHedefForm);
 
   // --- TEMEL FONKSİYONLAR ---
   const verileriGetir = async () => {
@@ -410,7 +364,7 @@ function App() {
     }
   };
 
-  // --- KULLANICI EKLE / GÜNCELLE (DÜZELTİLDİ: İD DAHİL EDİLDİ) ---
+  // --- KULLANICI EKLE / GÜNCELLE ---
   const kullaniciKaydetVeyaGuncelle = async (e) => {
     e.preventDefault();
     try {
@@ -418,7 +372,6 @@ function App() {
       if (!gonderilecekVeri.sifre) delete gonderilecekVeri.sifre;
 
       if (duzenlenenKullaniciId) {
-        // Güncelleme işleminde id'yi nesneye ekliyoruz
         gonderilecekVeri.id = duzenlenenKullaniciId;
 
         const response = await fetch(`${API_URL}/Kullanici/${duzenlenenKullaniciId}`, {
@@ -653,7 +606,7 @@ function App() {
     if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
       const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
-      setGelirler(guncelListe);
+      setGiderler(guncelListe);
       localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
 
       const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
@@ -681,34 +634,20 @@ function App() {
     if (!talepForm.kimeOdenecek || !talepForm.tutar) return;
 
     try {
-      if (talepTaslakId) {
-        await fetch(`${API_URL}/GiderTalebi/${talepTaslakId}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            talepEdenPersonelId: girisYapanKullanici.id,
-            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
-            tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
-            tarih: new Date().toISOString()
-          })
-        });
-      } else {
-        await fetch(`${API_URL}/GiderTalebi`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            talepEdenPersonelId: girisYapanKullanici.id,
-            kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
-            tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
-            tarih: new Date().toISOString()
-          })
-        });
-      }
+      await fetch(`${API_URL}/GiderTalebi`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          talepEdenPersonelId: girisYapanKullanici.id,
+          kimeOdenecek: talepForm.kimeOdenecek, kategori: talepForm.kategori || 'Diğer',
+          tutar: parseFloat(talepForm.tutar), aciklama: talepForm.aciklama,
+          tarih: new Date().toISOString()
+        })
+      });
 
       setTalepForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', aciklama: '' });
-      setTalepTaslakId(null);
       localStorage.removeItem('kasa_talepForm');
-      localStorage.removeItem('kasa_talepTaslakId');
       verileriGetir();
-      toast.success("Gelir/Gider talebi başarıyla oluşturuldu.");
+      toast.success("Gelir/Gider talebi başarıyla oluşturuldu ve onaya gönderildi.");
     } catch (error) { 
       console.error("Talep oluşturma hatası:", error); 
       toast.error("Talep oluşturulamadı.");
@@ -1211,7 +1150,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ */}
+        {/* TALEPLER SEKMESİ (KONTROLLÜ FİŞ OKUTMA) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
