@@ -47,13 +47,17 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ GİDER VE GELİR LİSTELERİ ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR EKLENDİ) ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
   });
   const [gelirler, setGelirler] = useState(() => {
     const saved = localStorage.getItem('kasa_gelirler');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [kullanicilar, setKullanicilar] = useState(() => {
+    const saved = localStorage.getItem('kasa_kullanicilar');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -65,9 +69,12 @@ function App() {
     localStorage.setItem('kasa_gelirler', JSON.stringify(gelirler));
   }, [gelirler]);
 
+  useEffect(() => {
+    localStorage.setItem('kasa_kullanicilar', JSON.stringify(kullanicilar));
+  }, [kullanicilar]);
+
   const [arşivRaporlar, setArşivRaporlar] = useState([]);
   const [giderTalepleri, setGiderTalepleri] = useState([]);
-  const [kullanicilar, setKullanicilar] = useState([]);
 
   // --- DÜZENLEME STATE'LERİ ---
   const [duzenlenenGelirId, setDuzenlenenGelirId] = useState(null);
@@ -1173,7 +1180,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (YÖNETİCİ/MUHASEBE İÇİN ONAY VE REDDET BUTONLARI) */}
+        {/* TALEPLER SEKMESİ */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
