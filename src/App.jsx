@@ -305,7 +305,6 @@ function App() {
     }
   };
 
-  // --- FİŞ OKUTMA (Sadece Giderler İçin) ---
   const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
 
   // --- TEMEL FONKSİYONLAR ---
@@ -411,7 +410,7 @@ function App() {
     }
   };
 
-  // --- KULLANICI EKLE / GÜNCELLE ---
+  // --- KULLANICI EKLE / GÜNCELLE (DÜZELTİLDİ: İD DAHİL EDİLDİ) ---
   const kullaniciKaydetVeyaGuncelle = async (e) => {
     e.preventDefault();
     try {
@@ -419,6 +418,9 @@ function App() {
       if (!gonderilecekVeri.sifre) delete gonderilecekVeri.sifre;
 
       if (duzenlenenKullaniciId) {
+        // Güncelleme işleminde id'yi nesneye ekliyoruz
+        gonderilecekVeri.id = duzenlenenKullaniciId;
+
         const response = await fetch(`${API_URL}/Kullanici/${duzenlenenKullaniciId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -457,6 +459,7 @@ function App() {
   const kullaniciDuzenleBaslat = (kul) => {
     setDuzenlenenKullaniciId(kul.id);
     setYeniKullaniciForm({
+      id: kul.id,
       adSoyad: kul.adSoyad,
       kullaniciAdi: kul.kullaniciAdi,
       sifre: '',
@@ -1071,7 +1074,6 @@ function App() {
                 </h2>
                 <form onSubmit={giderEkle} className="space-y-4">
                   
-                  {/* FİŞ OKUTMA (OCR) BÖLÜMÜ */}
                   <div className="flex gap-2 mb-2">
                     <input
                       type="file"
@@ -1126,7 +1128,6 @@ function App() {
               </div>
             </div>
 
-            {/* ARAMA VE GENEL FİLTRELEME */}
             <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
               <h2 className="text-lg font-semibold">Bugünün Kasa Hareketleri</h2>
               <input
@@ -1136,7 +1137,6 @@ function App() {
               />
             </div>
 
-            {/* TEK BİRLEŞTİRİLMİŞ KASA LİSTESİ TABLOSU */}
             <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-md font-semibold">Gelir & Gider Hareketleri Tablosu (Bugün)</h2>
@@ -1211,7 +1211,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (PERSONEL İÇİN FİŞ OKUTMA EKLENDİ) */}
+        {/* TALEPLER SEKMESİ */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
@@ -1219,7 +1219,6 @@ function App() {
                 <h2 className="text-lg font-semibold mb-4">Yeni Gelir/Gider Talebi Oluştur & Fiş Okut {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
                 <form onSubmit={talepEkle} className="space-y-4">
                   
-                  {/* PERSONEL İÇİN KANERAYLA FİŞ OKUTMA BUTONU */}
                   <div className="flex gap-2 mb-2">
                     <input
                       type="file"
