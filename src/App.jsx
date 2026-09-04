@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR EKLENDİ) ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -229,13 +229,13 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // GELİŞMİŞ VE AKILLI FİŞ OKUTMA (OCR) FONKSİYONU
+  // SÜPER AKILLI FİŞ OKUTMA (KATEGORİ, TÜR, TARİH VE KDV ANALİZİ)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
-    const toastId = toast.loading("📸 Fiş akıllı algoritmayla taranıyor, lütfen bekleyin...");
+    const toastId = toast.loading("📸 Fiş yapay zeka ile derinlemesine taranıyor...");
     
     try {
       const { data: { text } } = await Tesseract.recognize(dosya, 'tur', {
@@ -245,33 +245,43 @@ function App() {
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
       const textUpper = text.toUpperCase();
 
-      // 1. KATEGORİ VE AÇIKLAMA TAHMİNİ
+      // 1. KATEGORİ VE TÜR TESPİTİ
       let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
-      let otomatikAciklama = 'Fatura / Fiş (Kameradan)';
+      let fisTuruAciklamasi = 'Genel Fiş Alışverişi';
 
-      const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP'];
-      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101'];
-      const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR'];
+      const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP', 'LUKOIL'];
+      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK', 'GIDA'];
+      const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR', 'OFİS'];
+      const faturaKelimeleri = ['ELEKTRİK', 'SU İDARESİ', 'İGDAŞ', 'TURKCELL', 'VODAFONE', 'TÜRK TELEKOM', 'İNTERNET', 'FATURA'];
+      const bakimKelimeleri = ['SERVİS', 'OTO TAMİR', 'BAKIM', 'ONARIM', 'YEDEK PARÇA', 'USTA'];
 
       if (ulasimKelimeleri.some(k => textUpper.includes(k))) {
           tahminEdilenKategori = 'Ulaşım ve Akaryakıt';
-          otomatikAciklama = 'Akaryakıt / Ulaşım Fişi';
+          fisTuruAciklamasi = 'Akaryakıt / Benzin Fişi';
       } else if (yemekKelimeleri.some(k => textUpper.includes(k))) {
           tahminEdilenKategori = 'Yemek ve İkram';
-          otomatikAciklama = 'Yemek / Market Fişi';
+          fisTuruAciklamasi = 'Yemek / Market Fişi';
       } else if (ofisKelimeleri.some(k => textUpper.includes(k))) {
           tahminEdilenKategori = 'Ofis Malzemeleri';
-          otomatikAciklama = 'Ofis / Kırtasiye Alışverişi';
+          fisTuruAciklamasi = 'Ofis / Kırtasiye Fişi';
+      } else if (faturaKelimeleri.some(k => textUpper.includes(k))) {
+          tahminEdilenKategori = 'Fatura (Elektrik, Su, Doğalgaz, İnternet)';
+          fisTuruAciklamasi = 'Kurum Faturası';
+      } else if (bakimKelimeleri.some(k => textUpper.includes(k))) {
+          tahminEdilenKategori = 'Bakım ve Onarım';
+          fisTuruAciklamasi = 'Bakım ve Onarım Fişi';
       }
 
-      // 2. TEMİZ FİRMA ADI BULMA ALGORİTMASI
+      // 2. TEMİZ FİRMA ADI TESPİTİ
       let firmaAdi = '';
-      const resmiFirmaSatiri = satirlar.find(s => s.toUpperCase().includes('A.Ş') || s.toUpperCase().includes('LTD') || s.toUpperCase().includes('TİC') || s.toUpperCase().includes('SAN') || s.toUpperCase().includes('MARKET'));
+      const resmiFirmaSatiri = satirlar.find(s => {
+          const u = s.toUpperCase();
+          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('GIDA');
+      });
 
       if (resmiFirmaSatiri) {
           firmaAdi = resmiFirmaSatiri;
       } else {
-          // İçinde en az 4 harf olan ve 3'ten az özel karakter barındıran (çöp olmayan) ilk satırı bul
           const temizSatirlar = satirlar.filter(s => {
               const harfSayisi = (s.match(/[a-zA-ZğüşöçİĞÜŞÖÇ]/g) || []).length;
               const ozelKarakterSayisi = (s.match(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,]/g) || []).length;
@@ -279,13 +289,34 @@ function App() {
           });
           firmaAdi = temizSatirlar.length > 0 ? temizSatirlar[0] : '';
       }
-
-      // Geriye kalan nadir çöp karakterleri tamamen temizle
       firmaAdi = firmaAdi.replace(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,-]/g, '').substring(0, 40).trim();
 
-      // 3. EN YÜKSEK TUTARI (TOPLAM) BULMA
+      // 3. TARİH TESPİTİ
+      const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
+      const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
+
+      // 4. KDV TESPİTİ (Oranı ve Tutarını yakalama)
+      let kdvAciklama = '';
+      // Örn: KDV %18 14.50 veya %18 ... tutar
+      const kdvMatch = text.match(/(?:KDV)?\s*(?:%|ORAN)?\s*(1|8|18|20)\s*(?:%|KDV)?\s*[:=-]?\s*(\d+[.,]\d{2})/i) || text.match(/%\s*(1|8|18|20).*?(\d+[.,]\d{2})/i);
+      if (kdvMatch) {
+          kdvAciklama = `KDV: %${kdvMatch[1]} (${kdvMatch[2]} TL)`;
+      } else {
+          const oranMatch = text.match(/%\s*(1|8|18|20)/);
+          if (oranMatch) {
+              kdvAciklama = `KDV: %${oranMatch[1]}`;
+          }
+      }
+
+      // 5. AÇIKLAMA BİRLEŞTİRME (Tür + Tarih + KDV)
+      let aciklamaParcalari = [fisTuruAciklamasi];
+      if (fisTarihiStr) aciklamaParcalari.push(fisTarihiStr);
+      if (kdvAciklama) aciklamaParcalari.push(kdvAciklama);
+      const nihaiAciklama = aciklamaParcalari.join(' | ');
+
+      // 6. EN YÜKSEK TUTARI BULMA
       let bulunanTutar = '';
-      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
       if (tutarArama && tutarArama[1]) {
         bulunanTutar = tutarArama[1].replace(',', '.');
@@ -302,14 +333,18 @@ function App() {
         kimeOdenecek: firmaAdi || 'Okunamadı',
         tutar: bulunanTutar,
         kategori: tahminEdilenKategori,
-        aciklama: otomatikAciklama,
+        aciklama: nihaiAciklama,
       });
 
-      toast.success("Fiş okundu! Lütfen bilgileri kontrol edip kaydedin.", { id: toastId });
+      if (bulunanTutar) {
+        toast.success(`Fiş başarıyla okundu! Tutar: ${bulunanTutar} TL`, { id: toastId });
+      } else {
+        toast.error("Metin tarandı ancak tutar bulunamadı. Lütfen elle girin.", { id: toastId });
+      }
 
     } catch (error) {
       console.error("OCR Hatası:", error);
-      toast.error("Fiş okunamadı. Lütfen aydınlık bir ortamda çekin.", { id: toastId });
+      toast.error("Fiş okunamadı. Lütfen net bir şekilde tekrar çekin.", { id: toastId });
     }
   };
 
@@ -1228,7 +1263,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (YÖNETİCİ/MUHASEBE İÇİN ONAY VE REDDET BUTONLARI) */}
+        {/* TALEPLER SEKMESİ */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
