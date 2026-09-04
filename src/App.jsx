@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -93,7 +93,7 @@ function App() {
   const [secilenAy, setSecilenAy] = useState(null);
   const [secilenGun, setSecilenGun] = useState(null);
 
-  // --- FORM STATE'LERİ & KDV ORANI ---
+  // --- FORM STATE'LERİ & TASLAK ID'LERİ ---
   const [giderForm, setGiderForm] = useState(() => {
     const saved = localStorage.getItem('kasa_giderForm');
     return saved ? JSON.parse(saved) : { kimeOdenecek: '', kategori: 'Fatura (Elektrik, Su, Doğalgaz, İnternet)', tutar: '', kdvOrani: '20', aciklama: '' };
@@ -122,20 +122,7 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-  
-  // ROL BAZLI DİNAMİK BAŞLANGIÇ SEKMESİ
-  const [aktifSekme, setAktifSekme] = useState(() => {
-    const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        return user.rol === 'Personel' ? 'talepler' : 'islemler';
-      } catch (e) {
-        return 'islemler';
-      }
-    }
-    return 'islemler';
-  });
+  const [aktifSekme, setAktifSekme] = useState('islemler');
 
   // --- LOCAL STORAGE YEDEKLEMELERİ ---
   useEffect(() => localStorage.setItem('kasa_giderForm', JSON.stringify(giderForm)), [giderForm]);
@@ -143,7 +130,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI
+  // KDV HESAPLAMA YARDIMCILARI (Esnek ve Küsuratlı)
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -263,13 +250,13 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // SÜPER AKILLI FİŞ OKUTMA
+  // SÜPER AKILLI FİŞ OKUTMA (KATEGORİ, TÜR, TARİH VE KDV ANALİZİ)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
-    const toastId = toast.loading("📸 Fiş yapay zeka ile taranıyor...");
+    const toastId = toast.loading("📸 Fiş yapay zeka ile derinlemesine taranıyor...");
     
     try {
       const { data: { text } } = await Tesseract.recognize(dosya, 'tur', {
@@ -279,11 +266,12 @@ function App() {
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
       const textUpper = text.toUpperCase();
 
+      // 1. KATEGORİ VE TÜR TESPİTİ
       let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
       let fisTuruAciklamasi = 'Genel Fiş Alışverişi';
 
       const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP', 'LUKOIL', 'OTOBÜS', 'BİLET', 'ULAŞIM', 'SEYAHAT', 'ULAŞTIRMA', 'TAKSİ', 'METRO', 'TREN', 'YOLCU'];
-      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK'];
+      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK', 'GIDA'];
       const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR', 'OFİS'];
       const faturaKelimeleri = ['ELEKTRİK', 'SU İDARESİ', 'İGDAŞ', 'TURKCELL', 'VODAFONE', 'TÜRK TELEKOM', 'İNTERNET', 'FATURA'];
       const bakimKelimeleri = ['SERVİS', 'OTO TAMİR', 'BAKIM', 'ONARIM', 'YEDEK PARÇA', 'USTA'];
@@ -305,10 +293,11 @@ function App() {
           fisTuruAciklamasi = 'Bakım ve Onarım Fişi';
       }
 
+      // 2. TEMİZ FİRMA ADI TESPİTİ
       let firmaAdi = '';
       const resmiFirmaSatiri = satirlar.find(s => {
           const u = s.toUpperCase();
-          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('TURİZM');
+          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('GIDA');
       });
 
       if (resmiFirmaSatiri) {
@@ -323,9 +312,11 @@ function App() {
       }
       firmaAdi = firmaAdi.replace(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,-]/g, '').substring(0, 40).trim();
 
+      // 3. TARİH TESPİTİ
       const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
       const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
 
+      // 4. EN YÜKSEK TUTARI BULMA
       let bulunanTutar = '';
       const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
@@ -339,6 +330,7 @@ function App() {
         }
       }
 
+      // 5. HASSAS KDV TESPİTİ (Oranı ve Tutarını yakalama)
       let tespitEdilenKdvOrani = '0';
       const kdvOranMatch = text.match(/(?:KDV\s*1?O?R?A?N?I?|%)\s*(\d+([.,]\d+)?)/i);
       const kdvTutarRegex = text.match(/(?:KDV|TOPLAM KDV|HESAPLANAN KDV)\s*[:=.\-]?\s*(\d+[.,]\d{2})/i);
@@ -363,16 +355,23 @@ function App() {
         aciklama: fisTarihiStr ? `${fisTuruAciklamasi} | ${fisTarihiStr}` : fisTuruAciklamasi,
       });
 
-      toast.success("Fiş başarıyla okundu!", { id: toastId });
+      if (bulunanTutar) {
+        toast.success(`Fiş başarıyla okundu! Tutar: ${bulunanTutar} TL`, { id: toastId });
+      } else {
+        toast.error("Metin tarandı ancak tutar bulunamadı. Lütfen elle girin.", { id: toastId });
+      }
+
     } catch (error) {
       console.error("OCR Hatası:", error);
-      toast.error("Fiş okunamadı.", { id: toastId });
+      toast.error("Fiş okunamadı. Lütfen net bir şekilde tekrar çekin.", { id: toastId });
     }
   };
 
   const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
 
-  // --- KORUMALI VERİ ÇEKME ---
+  // ==========================================
+  // KORUMALI VERİ ÇEKME (SUNUCU SIFIRLENSE BİLE LOKALİ EZMEZ)
+  // ==========================================
   const verileriGetir = async () => {
     try {
       const giderRes = await fetch(`${API_URL}/Gider`);
@@ -438,7 +437,7 @@ function App() {
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      toast.error("Sunucu bağlantı hatası.");
+      toast.error("Sunucuya bağlanırken bir hata oluştu.");
     } finally {
       setYukleniyor(false);
     }
@@ -451,10 +450,17 @@ function App() {
     toast.success("Çıkış yapıldı.");
   };
 
+  // --- ŞİFRE GÜNCELLEME İŞLEMİ ---
   const sifreGuncelle = async (e) => {
     e.preventDefault();
-    if (!sifreForm.yeniSifre) return toast.error("Yeni şifre giriniz.");
-    if (sifreForm.yeniSifre !== sifreForm.yeniSifreTekrar) return toast.error("Şifreler uyuşmuyor!");
+    if (!sifreForm.yeniSifre) {
+      toast.error("Lütfen yeni şifreyi giriniz.");
+      return;
+    }
+    if (sifreForm.yeniSifre !== sifreForm.yeniSifreTekrar) {
+      toast.error("Şifreler birbiriyle eşleşmiyor!");
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/Kullanici/${girisYapanKullanici.id}/sifre`, {
@@ -462,17 +468,21 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sifre: sifreForm.yeniSifre })
       });
+
       if (response.ok) {
-        toast.success("Şifreniz güncellendi.");
+        toast.success("Şifreniz başarıyla güncellendi.");
         setSifreForm({ yeniSifre: '', yeniSifreTekrar: '' });
       } else {
-        toast.error("Şifre güncellenemedi.");
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.message || "Şifre güncellenemedi.");
       }
     } catch (error) {
-      toast.error("Bağlantı hatası.");
+      console.error("Şifre güncelleme hatası:", error);
+      toast.error("Sunucu bağlantı hatası.");
     }
   };
 
+  // --- KULLANICI EKLE / GÜNCELLE ---
   const kullaniciKaydetVeyaGuncelle = async (e) => {
     e.preventDefault();
     try {
@@ -481,39 +491,51 @@ function App() {
 
       if (duzenlenenKullaniciId) {
         gonderilecekVeri.id = duzenlenenKullaniciId;
+
         const response = await fetch(`${API_URL}/Kullanici/${duzenlenenKullaniciId}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gonderilecekVeri)
         });
         if (response.ok) {
-          toast.success("Kullanıcı güncellendi.");
+          toast.success("Kullanıcı başarıyla güncellendi.");
           setDuzenlenenKullaniciId(null);
           setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
           verileriGetir();
         } else {
-          toast.error("Kullanıcı güncellenemedi.");
+          const errData = await response.json().catch(() => ({}));
+          toast.error(errData.message || "Kullanıcı güncellenemedi.");
         }
       } else {
         const response = await fetch(`${API_URL}/Kullanici`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(yeniKullaniciForm)
         });
         if (response.ok) {
           setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
           verileriGetir();
-          toast.success("Kullanıcı eklendi.");
+          toast.success("Kullanıcı başarıyla eklendi.");
         } else {
-          toast.error("Kullanıcı eklenemedi.");
+          const errData = await response.json().catch(() => ({}));
+          toast.error(errData.message || "Kullanıcı eklenemedi.");
         }
       }
     } catch (error) {
-      toast.error("İşlem hatası.");
+      console.error("Kullanıcı işlem hatası:", error);
+      toast.error("İşlem sırasında bir hata oluştu.");
     }
   };
 
   const kullaniciDuzenleBaslat = (kul) => {
     setDuzenlenenKullaniciId(kul.id);
-    setYeniKullaniciForm({ id: kul.id, adSoyad: kul.adSoyad, kullaniciAdi: kul.kullaniciAdi, sifre: '', rol: kul.rol });
+    setYeniKullaniciForm({
+      id: kul.id,
+      adSoyad: kul.adSoyad,
+      kullaniciAdi: kul.kullaniciAdi,
+      sifre: '',
+      rol: kul.rol
+    });
   };
 
   const kullaniciSil = async (id) => {
@@ -522,31 +544,41 @@ function App() {
       const response = await fetch(`${API_URL}/Kullanici/${id}`, { method: 'DELETE' });
       if (response.ok) {
         verileriGetir();
-        toast.success("Kullanıcı silindi.");
+        toast.success("Kullanıcı başarıyla silindi.");
       } else {
-        toast.error("Silinemedi.");
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.message || "Kullanıcı silinemedi.");
       }
     } catch (error) {
-      toast.error("Hata oluştu.");
+      console.error("Silme hatası:", error);
+      toast.error("Kullanıcı silme hatası.");
     }
   };
 
+  // --- KATEGORİ EKLEME (YÖNETİCİ) ---
   const yeniKategoriEkle = (e) => {
     e.preventDefault();
     if (!yeniKategoriAdi.trim()) return;
-    if (kategoriler.includes(yeniKategoriAdi.trim())) return toast.error("Zaten var!");
+    if (kategoriler.includes(yeniKategoriAdi.trim())) {
+      toast.error("Bu kategori zaten mevcut!");
+      return;
+    }
     setKategoriler([...kategoriler, yeniKategoriAdi.trim()]);
-    toast.success("Kategori eklendi.");
+    toast.success("Yeni kategori başarıyla eklendi.");
     setYeniKategoriAdi('');
   };
 
   const kategoriSil = (kat) => {
-    if (kategoriler.length <= 1) return toast.error("En az bir kategori kalmalı.");
-    if (!window.confirm(`"${kat}" silinsin mi?`)) return;
+    if (kategoriler.length <= 1) {
+      toast.error("En az bir kategori kalmalıdır.");
+      return;
+    }
+    if (!window.confirm(`"${kat}" kategorisini silmek istediğinize emin misiniz?`)) return;
     setKategoriler(kategoriler.filter(k => k !== kat));
-    toast.success("Silindi.");
+    toast.success("Kategori silindi.");
   };
 
+  // --- GİDER EKLE / GÜNCELLE ---
   const giderEkle = async (e) => {
     e.preventDefault();
     if (!giderForm.kimeOdenecek || !giderForm.tutar) return;
@@ -566,31 +598,47 @@ function App() {
           })
         });
         setDuzenlenenGiderId(null);
-        toast.success("Gider güncellendi.");
+        toast.success("Gider başarıyla güncellendi.");
       } else {
-        await fetch(`${API_URL}/Gider`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
-            tutar: parseFloat(giderForm.tutar), aciklama: nihaiAciklama,
-            tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
-          })
-        });
-        toast.success("Gider eklendi.");
+        if (giderTaslakId) {
+          await fetch(`${API_URL}/Gider/${giderTaslakId}?rol=${userRol}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
+              tutar: parseFloat(giderForm.tutar), aciklama: nihaiAciklama,
+              tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
+            })
+          });
+          toast.success("Gider kaydedildi.");
+        } else {
+          await fetch(`${API_URL}/Gider`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kimeOdendi: giderForm.kimeOdenecek, kategori: giderForm.kategori || 'Diğer',
+              tutar: parseFloat(giderForm.tutar), aciklama: nihaiAciklama,
+              tarih: new Date().toISOString(), islemiYapanAdminId: girisYapanKullanici.id
+            })
+          });
+          toast.success("Gider eklendi.");
+        }
       }
+
       setGiderForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', kdvOrani: '20', aciklama: '' });
+      setGiderTaslakId(null);
+      localStorage.removeItem('kasa_giderForm');
+      localStorage.removeItem('kasa_giderTaslakId');
       verileriGetir();
     } catch (error) { 
-      toast.error("İşlem başarısız.");
+      console.error("Gider ekleme hatası:", error); 
+      toast.error("İşlem sırasında hata oluştu.");
     }
   };
 
   const giderDuzenleBaslat = (item) => {
     setDuzenlenenGiderId(item.id);
-    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, kdvOrani: '20', aciklama: item.aciklama || '' });
+    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, kdvOrani: '0', aciklama: item.aciklama || '' });
   };
 
-  // TAM YETKİLİ GİDER SİLME (Optimistic UI Güncellemesi Dahil)
   const giderSil = async (id) => {
     if (!window.confirm("Bu gideri silmek istediğinize emin misiniz?")) return;
     try {
@@ -621,6 +669,7 @@ function App() {
     }
   };
 
+  // --- GELİR EKLE / GÜNCELLE ---
   const gelirEkle = async (e) => {
     e.preventDefault();
     if (!gelirForm.kaynak || !gelirForm.tutar) return;
@@ -635,21 +684,37 @@ function App() {
           })
         });
         setDuzenlenenGelirId(null);
-        toast.success("Gelir güncellendi.");
+        toast.success("Gelir başarıyla güncellendi.");
       } else {
-        await fetch(`${API_URL}/Gelir`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
-            aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
-          })
-        });
-        toast.success("Gelir eklendi.");
+        if (gelirTaslakId) {
+          await fetch(`${API_URL}/Gelir/${gelirTaslakId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
+              aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
+            })
+          });
+          toast.success("Gelir kaydedildi.");
+        } else {
+          await fetch(`${API_URL}/Gelir`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              kaynak: gelirForm.kaynak, tutar: parseFloat(gelirForm.tutar),
+              aciklama: gelirForm.aciklama, tarih: new Date().toISOString()
+            })
+          });
+          toast.success("Gelir eklendi.");
+        }
       }
+
       setGelirForm({ kaynak: '', tutar: '', aciklama: '' });
+      setGelirTaslakId(null);
+      localStorage.removeItem('kasa_gelirForm');
+      localStorage.removeItem('kasa_gelirTaslakId');
       verileriGetir();
     } catch (error) { 
-      toast.error("İşlem başarısız.");
+      console.error("Gelir ekleme hatası:", error); 
+      toast.error("Gelir eklenirken hata oluştu.");
     }
   };
 
@@ -658,12 +723,11 @@ function App() {
     setGelirForm({ kaynak: item.kaynak, tutar: item.tutar, aciklama: item.aciklama || '' });
   };
 
-  // TAM YETKİLİ GELİR SİLME
   const gelirSil = async (id) => {
     if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
       const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
-      setGelirler(guncelListe);
+      setGiderler(guncelListe);
       localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
 
       const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
@@ -686,7 +750,7 @@ function App() {
     }
   };
 
-  // --- TALEP EKLE ---
+  // --- KONTROLLÜ TALEP OLUŞTURMA ("Bekliyor" statüsü ile başlar) ---
   const talepEkle = async (e) => {
     e.preventDefault();
     if (!talepForm.kimeOdenecek || !talepForm.tutar) return;
@@ -718,6 +782,7 @@ function App() {
     }
   };
 
+  // --- TALEP ONAYLA ---
   const talepOnayla = async (id) => {
     try {
       const response = await fetch(`${API_URL}/GiderTalebi/${id}/onayla`, { method: 'PUT' });
@@ -728,10 +793,12 @@ function App() {
         toast.error("Talep onaylanamadı.");
       }
     } catch (error) { 
+      console.error("Talep onaylama hatası:", error); 
       toast.error("Onaylama başarısız.");
     }
   };
 
+  // --- TALEP REDDET ---
   const talepReddet = async (id) => {
     if (!window.confirm("Bu talebi reddetmek istediğinize emin misiniz?")) return;
     try {
@@ -743,6 +810,7 @@ function App() {
         toast.error("Talep reddedilemedi.");
       }
     } catch (error) {
+      console.error("Talep reddetme hatası:", error);
       toast.error("Reddetme başarısız.");
     }
   };
@@ -758,12 +826,26 @@ function App() {
 
   const tumKasaListesi = [
     ...gelirler.map(g => ({
-      id: `gelir-${g.id}`, gercekId: g.id, tip: 'gelir', tarih: g.tarih,
-      isimVeyaKaynak: g.kaynak, kategori: '-', aciklama: g.aciklama, tutar: g.tutar, orijinalVeri: g
+      id: `gelir-${g.id}`,
+      gercekId: g.id,
+      tip: 'gelir',
+      tarih: g.tarih,
+      isimVeyaKaynak: g.kaynak,
+      kategori: '-',
+      aciklama: g.aciklama,
+      tutar: g.tutar,
+      orijinalVeri: g
     })),
     ...giderler.map(gi => ({
-      id: `gider-${gi.id}`, gercekId: gi.id, tip: 'gider', tarih: gi.tarih,
-      isimVeyaKaynak: gi.kimeOdendi, kategori: gi.kategori || 'Diğer', aciklama: gi.aciklama, tutar: gi.tutar, orijinalVeri: gi
+      id: `gider-${gi.id}`,
+      gercekId: gi.id,
+      tip: 'gider',
+      tarih: gi.tarih,
+      isimVeyaKaynak: gi.kimeOdendi,
+      kategori: gi.kategori || 'Diğer',
+      aciklama: gi.aciklama,
+      tutar: gi.tutar,
+      orijinalVeri: gi
     }))
   ].filter(item => bugunMu(item.tarih));
 
@@ -795,9 +877,17 @@ function App() {
     return true;
   };
 
-  const raporIcinGelirler = gelirler.filter(item => (item.kaynak || '').toLowerCase().includes(raporArama.toLowerCase()) && raporTarihFiltresi(item.tarih));
+  const raporIcinGelirler = gelirler.filter(item => {
+    const metinUyumu = (item.kaynak || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(raporArama.toLowerCase());
+    const kategoriUyumu = raporKategori ? false : true; 
+    return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
+  });
+
   const raporIcinGiderler = giderler.filter(item => {
-    const metinUyumu = (item.kimeOdendi || '').toLowerCase().includes(raporArama.toLowerCase()) || (item.kategori || '').toLowerCase().includes(raporArama.toLowerCase());
+    const metinUyumu = (item.kimeOdendi || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.kategori || '').toLowerCase().includes(raporArama.toLowerCase()) ||
+                       (item.aciklama || '').toLowerCase().includes(raporArama.toLowerCase());
     const kategoriUyumu = raporKategori ? item.kategori === raporKategori : true;
     return metinUyumu && raporTarihFiltresi(item.tarih) && kategoriUyumu;
   });
@@ -834,45 +924,71 @@ function App() {
         });
       }
       verileriGetir();
-      toast.success("Raporlar arşivlendi!");
+      toast.success("Aylık raporlar başarıyla arşivlendi!");
     } catch (error) { 
+      console.error("Arşivleme hatası:", error); 
       toast.error("Arşivleme başarısız.");
     }
   };
 
   const excelIndir = () => {
     const veriDizisi = [];
-    raporIcinGelirler.forEach(item => veriDizisi.push({ "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'), "Tür": "Gelir", "Kaynak": item.kaynak, "Kategori": "-", "Açıklama": item.aciklama || "-", "Tutar": item.tutar }));
-    raporIcinGiderler.forEach(item => veriDizisi.push({ "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'), "Tür": "Gider", "Kaynak": item.kimeOdendi, "Kategori": item.kategori, "Açıklama": item.aciklama || "-", "Tutar": item.tutar }));
-    if (veriDizisi.length === 0) return toast.error("Veri yok.");
+    raporIcinGelirler.forEach(item => {
+      veriDizisi.push({
+        "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
+        "İşlem Türü": "Gelir",
+        "Kaynak / Firma": item.kaynak,
+        "Kategori": "-",
+        "Açıklama": item.aciklama || "-",
+        "Tutar (TL)": item.tutar
+      });
+    });
+
+    raporIcinGiderler.forEach(item => {
+      veriDizisi.push({
+        "Tarih": new Date(item.tarih).toLocaleDateString('tr-TR'),
+        "İşlem Türü": "Gider",
+        "Kaynak / Firma": item.kimeOdendi,
+        "Kategori": item.kategori || "Diğer",
+        "Açıklama": item.aciklama || "-",
+        "Tutar (TL)": item.tutar
+      });
+    });
+
+    if (veriDizisi.length === 0) {
+      toast.error("Dışa aktarılacak işlem bulunamadı.");
+      return;
+    }
+
     const worksheet = XLSX.utils.json_to_sheet(veriDizisi);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Rapor");
-    XLSX.writeFile(workbook, "Rapor.xlsx");
-    toast.success("Excel indirildi.");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Detayli_Finansal_Rapor");
+    XLSX.writeFile(workbook, "Detayli_Finansal_Rapor.xlsx");
+    toast.success("Detaylı Excel raporu indirildi.");
   };
 
   const pdfIndir = () => {
     const doc = new jsPDF();
-    doc.text("Kasa Takip - Rapor", 14, 15);
-    const tableColumn = ["Ay", "Gelir", "Gider", "Net"];
+    doc.text("Kasa Takip Sistemi - Aylik Finansal Rapor", 14, 15);
+    const tableColumn = ["Ay / Yıl", "Toplam Gelir", "Toplam Gider", "Net Durum"];
     const tableRows = [];
     Object.entries(aylikRapor).forEach(([ay, veri]) => {
-      tableRows.push([ay, `${veri.gelir} TL`, `${veri.gider} TL`, `${veri.gelir - veri.gider} TL`]);
+      const net = veri.gelir - veri.gider;
+      tableRows.push([ay, `${veri.gelir.toLocaleString('tr-TR')} TL`, `${veri.gider.toLocaleString('tr-TR')} TL`, `${net.toLocaleString('tr-TR')} TL`]);
     });
     doc.autoTable({ head: [tableColumn], body: tableRows, startY: 25 });
-    doc.save("Rapor.pdf");
-    toast.success("PDF indirildi.");
+    doc.save("Aylik_Finansal_Rapor.pdf");
+    toast.success("PDF raporu indirildi.");
   };
 
   if (!girisYapanKullanici) {
     return (
       <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-900 text-white'} flex items-center justify-center p-6 transition-colors`}>
         <Toaster position="top-right" />
-        <div className={`${darkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white'} p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6`}>
+        <div className={`${darkMode ? 'bg-slate-900 border border-slate-800' : 'bg-white'} p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6 transition-colors`}>
           <div className="text-center space-y-2">
             <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Kasa Takip Sistemi</h1>
-            <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Giriş Yapın</p>
+            <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Lütfen kullanıcı bilgileriyle giriş yapın</p>
           </div>
           <form onSubmit={girisYap} className="space-y-4">
             <div>
@@ -880,8 +996,8 @@ function App() {
               <input
                 type="text" value={loginForm.kullaniciAdi}
                 onChange={(e) => setLoginForm({ ...loginForm, kullaniciAdi: e.target.value })}
-                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none`}
-                required
+                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+                placeholder="Kullanıcı adınızı girin" required
               />
             </div>
             <div>
@@ -889,15 +1005,16 @@ function App() {
               <input
                 type="password" value={loginForm.sifre}
                 onChange={(e) => setLoginForm({ ...loginForm, sifre: e.target.value })}
-                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none`}
-                required
+                className={`w-full border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900'} rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+                placeholder="••••••••" required
               />
             </div>
             <button 
-              type="submit" disabled={yukleniyor}
-              className={`w-full text-white font-medium py-3 rounded-lg transition text-sm ${yukleniyor ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+              type="submit" 
+              disabled={yukleniyor}
+              className={`w-full text-white font-medium py-3 rounded-lg transition text-sm shadow-sm ${yukleniyor ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {yukleniyor ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+              {yukleniyor ? 'Giriş Yapılıyor...' : 'Sisteme Giriş Yap'}
             </button>
           </form>
         </div>
@@ -906,7 +1023,7 @@ function App() {
   }
 
   const cardBg = darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-100 text-slate-800';
-  const inputBg = darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800';
+  const inputBg = darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400';
   const tableHeader = darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400';
   const tableRowHover = darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/50';
   const tableDivider = darkMode ? 'divide-slate-800 text-slate-300' : 'divide-slate-50 text-slate-600';
@@ -916,57 +1033,87 @@ function App() {
       <Toaster position="top-right" />
       <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* ÜST BİLGİ */}
-        <div className={`flex justify-between items-center ${cardBg} p-4 rounded-xl shadow-sm border`}>
+        {/* ÜST BİLGİ & TEMA DEĞİŞTİRME */}
+        <div className={`flex justify-between items-center ${cardBg} p-4 rounded-xl shadow-sm border transition-colors`}>
           <div>
             <h1 className="text-xl font-bold">Kasa Takip Sistemi</h1>
             <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Hoş geldiniz, <span className="font-semibold">{girisYapanKullanici.adSoyad}</span> ({girisYapanKullanici.rol})</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg text-xs font-medium ${darkMode ? 'bg-slate-800 text-amber-400' : 'bg-slate-100 text-slate-600'}`}>
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-amber-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
               {darkMode ? '☀️ Aydınlık' : '🌙 Karanlık'}
             </button>
-            <button onClick={cikisYap} className={`px-4 py-2 rounded-lg text-xs font-medium ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
-              Çıkış
+            <button onClick={cikisYap} className={`px-4 py-2 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              Çıkış Yap
             </button>
           </div>
         </div>
 
         {/* SEKMELER */}
-        <div className={`flex items-center flex-wrap gap-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'} pb-3`}>
+        <div className={`flex justify-start items-center flex-wrap gap-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'} pb-3 w-full`}>
           {girisYapanKullanici.rol !== 'Personel' && (
-            <button onClick={() => setAktifSekme('islemler')} className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'islemler' ? 'bg-blue-600 text-white' : cardBg}`}>
-              Kasa Yönetimi
+            <button
+              onClick={() => setAktifSekme('islemler')}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'islemler' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
+            >
+              Kasa & İşlem Yönetimi
             </button>
           )}
-          <button onClick={() => setAktifSekme('talepler')} className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'talepler' ? 'bg-blue-600 text-white' : cardBg}`}>
-            {girisYapanKullanici.rol === 'Personel' ? 'Talep & Fiş Okutma' : 'Talep Onayları'}
+
+          <button
+            onClick={() => setAktifSekme('talepler')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'talepler' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
+          >
+            {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerim' : 'Gelir/Gider Talepleri Onay'}
           </button>
+
           {girisYapanKullanici.rol !== 'Personel' && (
-            <>
-              <button onClick={() => setAktifSekme('raporlar')} className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'raporlar' ? 'bg-blue-600 text-white' : cardBg}`}>Raporlar</button>
-              <button onClick={() => setAktifSekme('gecmis')} className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'gecmis' ? 'bg-blue-600 text-white' : cardBg}`}>Geçmiş</button>
-            </>
+            <button
+              onClick={() => setAktifSekme('raporlar')}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'raporlar' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
+            >
+              Günlük & Aylık Raporlar
+            </button>
           )}
+
+          {girisYapanKullanici.rol !== 'Personel' && (
+            <button
+              onClick={() => setAktifSekme('gecmis')}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'gecmis' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
+            >
+              İşlem Geçmişi
+            </button>
+          )}
+
           {girisYapanKullanici.rol === 'Yonetici' && (
-            <button onClick={() => setAktifSekme('kullanicilar')} className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'kullanicilar' ? 'bg-blue-600 text-white' : cardBg}`}>Yönetim</button>
+            <button
+              onClick={() => setAktifSekme('kullanicilar')}
+              className={`px-5 py-2 rounded-lg font-medium text-sm transition ${aktifSekme === 'kullanicilar' ? 'bg-blue-600 text-white shadow-sm' : `${darkMode ? 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}`}
+            >
+              Kullanıcı & Kategori Yönetimi
+            </button>
           )}
         </div>
 
-        {/* KASA ÖZETİ */}
+        {/* ÖZET KARTLAR */}
         {girisYapanKullanici.rol !== 'Personel' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`${cardBg} p-5 rounded-xl shadow-sm border`}>
-              <p className="text-sm font-medium text-slate-400">Toplam Gelir</p>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Toplam Gelir</p>
               <h3 className="text-2xl font-bold text-emerald-600 mt-1">{toplamGelir.toLocaleString('tr-TR')} TL</h3>
             </div>
-            <div className={`${cardBg} p-5 rounded-xl shadow-sm border`}>
-              <p className="text-sm font-medium text-slate-400">Toplam Gider</p>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Toplam Gider</p>
               <h3 className="text-2xl font-bold text-red-600 mt-1">{toplamGider.toLocaleString('tr-TR')} TL</h3>
             </div>
-            <div className={`${cardBg} p-5 rounded-xl shadow-sm border`}>
-              <p className="text-sm font-medium text-slate-400">Net Bakiye</p>
-              <h3 className={`text-2xl font-bold mt-1 ${netBakiye >= 0 ? 'text-blue-500' : 'text-red-600'}`}>{netBakiye.toLocaleString('tr-TR')} TL</h3>
+            <div className={`${cardBg} p-5 rounded-xl shadow-sm border transition-colors`}>
+              <p className={`text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Net Kasa Durumu</p>
+              <h3 className={`text-2xl font-bold mt-1 ${netBakiye >= 0 ? 'text-blue-500' : 'text-red-600'}`}>
+                {netBakiye.toLocaleString('tr-TR')} TL
+              </h3>
             </div>
           </div>
         )}
@@ -975,89 +1122,190 @@ function App() {
         {aktifSekme === 'islemler' && girisYapanKullanici.rol !== 'Personel' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
-                <h2 className="text-lg font-semibold mb-4">{duzenlenenGelirId ? 'Geliri Düzenle' : 'Yeni Gelir Ekle'}</h2>
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">
+                  {duzenlenenGelirId ? 'Geliri Düzenle' : `Yeni Gelir Ekle ${gelirTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
+                </h2>
                 <form onSubmit={gelirEkle} className="space-y-4">
-                  <input type="text" placeholder="Gelir Kaynağı" value={gelirForm.kaynak} onChange={(e) => setGelirForm({ ...gelirForm, kaynak: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
-                  <input type="number" placeholder="Tutar (TL)" value={gelirForm.tutar} onChange={(e) => setGelirForm({ ...gelirForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
-                  <input type="text" placeholder="Açıklama" value={gelirForm.aciklama} onChange={(e) => setGelirForm({ ...gelirForm, aciklama: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} />
-                  <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 text-sm">Kaydet</button>
+                  <input
+                    type="text" placeholder="Gelir Kaynağı (Örn: Satış)"
+                    value={gelirForm.kaynak} onChange={(e) => setGelirForm({ ...gelirForm, kaynak: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <input
+                    type="number" placeholder="Tutar (TL)"
+                    value={gelirForm.tutar} onChange={(e) => setGelirForm({ ...gelirForm, tutar: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <input
+                    type="text" placeholder="Açıklama"
+                    value={gelirForm.aciklama} onChange={(e) => setGelirForm({ ...gelirForm, aciklama: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
+                  />
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
+                      {duzenlenenGelirId ? 'Geliri Güncelle' : 'Geliri Kaydet & Onayla'}
+                    </button>
+                    {duzenlenenGelirId && (
+                      <button type="button" onClick={() => { setDuzenlenenGelirId(null); setGelirForm({kaynak: '', tutar: '', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE */}
-              <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
-                <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">
+                  {duzenlenenGiderId ? 'Gideri Düzenle' : `Yeni Gider Ekle ${giderTaslakId ? '(Taslak Oluşturuldu)' : ''}`}
+                </h2>
                 <form onSubmit={giderEkle} className="space-y-4">
-                  <div>
-                    <input type="file" accept="image/*" capture="environment" onChange={fisOkut} className="hidden" id="kamera-gider" />
-                    <label htmlFor="kamera-gider" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2 mb-2">
+                  
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={fisOkut}
+                      className="hidden"
+                      id="kamera-yukle"
+                    />
+                    <label 
+                      htmlFor="kamera-yukle" 
+                      className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2"
+                    >
                       📸 Kamerayla Fiş Okut
                     </label>
                   </div>
-                  <input type="text" placeholder="Firma / Kime Ödendi" value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
-                  
-                  <select value={giderForm.kategori} onChange={(e) => setGiderForm({ ...giderForm, kategori: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required>
-                    {kategoriler.map((kat, idx) => <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>)}
-                  </select>
 
-                  <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
+                  <input
+                    type="text" placeholder="Kime Ödendi / Firma"
+                    value={giderForm.kimeOdenecek} onChange={(e) => setGiderForm({ ...giderForm, kimeOdenecek: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <select
+                    value={giderForm.kategori} onChange={(e) => setGiderForm({ ...giderForm, kategori: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  >
+                    {kategoriler.map((kat, idx) => (
+                      <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number" placeholder="Tutar (TL)"
+                    value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
 
                   {/* ESNEK KDV ORANI GİRİŞİ */}
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">KDV Oranı (%):</label>
+                    <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="Örn: 20, 16.67, 10, 8" 
+                        placeholder="Örn: 20, 16.67, 10, 1" 
                         value={giderForm.kdvOrani} 
                         onChange={(e) => setGiderForm({ ...giderForm, kdvOrani: e.target.value })} 
-                        className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} 
+                        className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} 
                       />
-                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap">
+                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap">
                         KDV: {anlikKdvHesapla(giderForm.tutar, giderForm.kdvOrani)}
                       </div>
                     </div>
                   </div>
 
-                  <input type="text" placeholder="Açıklama" value={giderForm.aciklama} onChange={(e) => setGiderForm({ ...giderForm, aciklama: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} />
-                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 text-sm">Kaydet</button>
+                  <input
+                    type="text" placeholder="Açıklama"
+                    value={giderForm.aciklama} onChange={(e) => setGiderForm({ ...giderForm, aciklama: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
+                  />
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                      {duzenlenenGiderId ? 'Gideri Güncelle' : 'Gideri Kaydet & Onayla'}
+                    </button>
+                    {duzenlenenGiderId && (
+                      <button type="button" onClick={() => { setDuzenlenenGiderId(null); setGiderForm({kimeOdenecek: '', kategori: kategoriler[0], tutar: '', kdvOrani: '20', aciklama: ''}); }} className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
             </div>
 
-            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4`}>
-              <div className="flex justify-between items-center">
-                <h2 className="text-md font-semibold">Bugünün İşlemleri</h2>
-                <input type="text" placeholder="Ara..." value={islemArama} onChange={(e) => setIslemArama(e.target.value)} className={`border ${inputBg} rounded-lg p-2 text-sm w-64`} />
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">Bugünün Kasa Hareketleri</h2>
+              <input
+                type="text" placeholder="Tablolarda ara..."
+                value={islemArama} onChange={(e) => setIslemArama(e.target.value)}
+                className={`border ${inputBg} rounded-lg p-2 text-sm w-full md:w-72`}
+              />
+            </div>
+
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 className="text-md font-semibold">Gelir & Gider Hareketleri Tablosu (Bugün)</h2>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Sırala:</span>
+                  <select
+                    value={kasaSiralama} onChange={(e) => setKasaSiralama(e.target.value)}
+                    className={`border ${inputBg} rounded-lg p-1.5 text-xs outline-none cursor-pointer`}
+                  >
+                    <option value="yeni" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Yeni Tarih</option>
+                    <option value="eski" className={darkMode ? 'bg-slate-900 text-white' : ''}>En Eski Tarih</option>
+                    <option value="tutar-azalan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Yüksekten Düşüğe)</option>
+                    <option value="tutar-artan" className={darkMode ? 'bg-slate-900 text-white' : ''}>Tutar (Düşükten Yükseğe)</option>
+                  </select>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className={`border-b ${tableHeader} text-sm`}>
-                      <th className="pb-3">Tarih</th>
-                      <th className="pb-3">Tür</th>
-                      <th className="pb-3">Kaynak/Firma</th>
-                      <th className="pb-3">Kategori</th>
-                      <th className="pb-3">Tutar</th>
-                      <th className="pb-3 text-right">İşlemler</th>
+                      <th className="pb-3 font-medium">Tarih</th>
+                      <th className="pb-3 font-medium">Tür</th>
+                      <th className="pb-3 font-medium">Kaynak / Firma</th>
+                      <th className="pb-3 font-medium">Kategori</th>
+                      <th className="pb-3 font-medium">Açıklama</th>
+                      <th className="pb-3 font-medium">Tutar</th>
+                      <th className="pb-3 font-medium text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {siralanmisKasaListesi.length === 0 ? (
-                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Bugün kayıt yok.</td></tr>
+                      <tr><td colSpan="7" className="py-4 text-center text-slate-500">Bugüne ait işlem kaydı bulunmuyor.</td></tr>
                     ) : (
                       siralanmisKasaListesi.map((item) => (
                         <tr key={item.id} className={tableRowHover}>
                           <td className="py-3">{new Date(item.tarih).toLocaleDateString()}</td>
-                          <td className="py-3"><span className={`px-2 py-0.5 rounded text-xs ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{item.tip}</span></td>
+                          <td className="py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                              {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                            </span>
+                          </td>
                           <td className="py-3 font-medium">{item.isimVeyaKaynak}</td>
-                          <td className="py-3">{item.kategori}</td>
-                          <td className={`py-3 font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>{item.tutar} TL</td>
+                          <td className="py-3">
+                            {item.tip === 'gider' ? (
+                              <span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs`}>{item.kategori}</span>
+                            ) : '-'}
+                          </td>
+                          <td className="py-3 text-xs">{item.aciklama || '-'}</td>
+                          <td className={`py-3 font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                          </td>
                           <td className="py-3 text-right space-x-2">
-                            <button onClick={() => item.tip === 'gelir' ? gelirDuzenleBaslat(item.orijinalVeri) : giderDuzenleBaslat(item.orijinalVeri)} className="text-amber-500 text-xs">Düzenle</button>
-                            <button onClick={() => item.tip === 'gelir' ? gelirSil(item.gercekId) : giderSil(item.gercekId)} className="text-red-500 text-xs">Sil</button>
+                            {item.tip === 'gelir' ? (
+                              <>
+                                <button onClick={() => gelirDuzenleBaslat(item.orijinalVeri)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                                <button onClick={() => gelirSil(item.gercekId)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => giderDuzenleBaslat(item.orijinalVeri)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                                <button onClick={() => giderSil(item.gercekId)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -1073,71 +1321,102 @@ function App() {
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
-              <div className={`${cardBg} p-6 rounded-xl shadow-sm border max-w-xl mx-auto`}>
-                <h2 className="text-lg font-semibold mb-4">Yeni Talep Oluştur & Fiş Okut</h2>
+              <div className={`${cardBg} p-6 rounded-xl shadow-sm border max-w-xl mx-auto transition-colors`}>
+                <h2 className="text-lg font-semibold mb-4">Yeni Gelir/Gider Talebi Oluştur & Fiş Okut {talepTaslakId ? '(Taslak Oluşturuldu)' : ''}</h2>
                 <form onSubmit={talepEkle} className="space-y-4">
-                  <div>
-                    <input type="file" accept="image/*" capture="environment" onChange={(e) => fisOkutGenel(e, talepForm, setTalepForm)} className="hidden" id="kamera-talep" />
-                    <label htmlFor="kamera-talep" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 text-sm cursor-pointer flex items-center justify-center gap-2 mb-2">
+                  
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => fisOkutGenel(e, talepForm, setTalepForm)}
+                      className="hidden"
+                      id="kamera-talep"
+                    />
+                    <label 
+                      htmlFor="kamera-talep" 
+                      className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2"
+                    >
                       📸 Kamerayla Fiş Okut
                     </label>
                   </div>
-                  <input type="text" placeholder="Firma / Kime Ödenecek" value={talepForm.kimeOdenecek} onChange={(e) => setTalepForm({ ...talepForm, kimeOdenecek: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
-                  
-                  <select value={talepForm.kategori} onChange={(e) => setTalepForm({ ...talepForm, kategori: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required>
-                    {kategoriler.map((kat, idx) => <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>)}
+
+                  <input
+                    type="text" placeholder="Kime Ödenecek / Firma"
+                    value={talepForm.kimeOdenecek} onChange={(e) => setTalepForm({ ...talepForm, kimeOdenecek: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <select
+                    value={talepForm.kategori} onChange={(e) => setTalepForm({ ...talepForm, kategori: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  >
+                    {kategoriler.map((kat, idx) => (
+                      <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
+                    ))}
                   </select>
+                  <input
+                    type="number" placeholder="Tutar (TL)"
+                    value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
 
-                  <input type="number" placeholder="Tutar (TL)" value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
-
-                  {/* KDV ORANI */}
+                  {/* ESNEK KDV ORANI GİRİŞİ */}
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">KDV Oranı (%):</label>
+                    <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="Örn: 20, 16.67, 10, 8" 
+                        placeholder="Örn: 20, 16.66, 10, 1" 
                         value={talepForm.kdvOrani} 
                         onChange={(e) => setTalepForm({ ...talepForm, kdvOrani: e.target.value })} 
-                        className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} 
+                        className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} 
                       />
-                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap">
+                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap">
                         KDV: {anlikKdvHesapla(talepForm.tutar, talepForm.kdvOrani)}
                       </div>
                     </div>
                   </div>
 
-                  <input type="text" placeholder="Açıklama" value={talepForm.aciklama} onChange={(e) => setTalepForm({ ...talepForm, aciklama: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} />
-                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 text-sm">Talep Gönder</button>
+                  <input
+                    type="text" placeholder="Açıklama"
+                    value={talepForm.aciklama} onChange={(e) => setTalepForm({ ...talepForm, aciklama: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
+                  />
+                  <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                    Talep Gönder & Onaya Sun
+                  </button>
                 </form>
               </div>
             )}
 
-            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4`}>
-              <h2 className="text-lg font-semibold">{girisYapanKullanici.rol === 'Personel' ? 'Taleplerim' : 'Onay Bekleyen Talepler'}</h2>
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">
+                {girisYapanKullanici.rol === 'Personel' ? 'Gelir/Gider Taleplerimin Durumu' : 'Onay Bekleyen Gelir/Gider Talepleri'}
+              </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className={`border-b ${tableHeader} text-sm`}>
-                      <th className="pb-3">Tarih</th>
-                      <th className="pb-3">Firma</th>
-                      <th className="pb-3">Kategori</th>
-                      <th className="pb-3">Tutar</th>
-                      <th className="pb-3">Durum</th>
-                      {(girisYapanKullanici.rol === 'Yonetici' || girisYapanKullanici.rol === 'Muhasebe') && <th className="pb-3 text-right">İşlemler</th>}
+                      <th className="pb-3 font-medium">Tarih</th>
+                      <th className="pb-3 font-medium">Firma / Ödenen</th>
+                      <th className="pb-3 font-medium">Kategori</th>
+                      <th className="pb-3 font-medium">Tutar</th>
+                      <th className="pb-3 font-medium">Durum</th>
+                      {(girisYapanKullanici.rol === 'Yonetici' || girisYapanKullanici.rol === 'Muhasebe') && <th className="pb-3 font-medium text-right">İşlemler</th>}
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${tableDivider} text-sm`}>
                     {giderTalepleri.length === 0 ? (
-                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Talep yok.</td></tr>
+                      <tr><td colSpan="6" className="py-4 text-center text-slate-500">Talep bulunmuyor.</td></tr>
                     ) : (
                       giderTalepleri.map((talep) => (
                         <tr key={talep.id} className={tableRowHover}>
                           <td className="py-3">{new Date(talep.tarih).toLocaleDateString()}</td>
                           <td className="py-3 font-medium">{talep.kimeOdenecek}</td>
                           <td className="py-3">{talep.kategori}</td>
-                          <td className="py-3 font-semibold">{talep.tutar} TL</td>
+                          <td className="py-3 font-semibold">{talep.tutar.toLocaleString('tr-TR')} TL</td>
                           <td className="py-3">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                               talep.durum === 'Onaylandı' ? 'bg-emerald-500/10 text-emerald-500' : 
@@ -1148,8 +1427,12 @@ function App() {
                           </td>
                           {(girisYapanKullanici.rol === 'Yonetici' || girisYapanKullanici.rol === 'Muhasebe') && talep.durum !== 'Onaylandı' && talep.durum !== 'Reddedildi' && (
                             <td className="py-3 text-right space-x-2">
-                              <button onClick={() => talepOnayla(talep.id)} className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded text-xs font-medium hover:bg-emerald-500/20">Onayla</button>
-                              <button onClick={() => talepReddet(talep.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded text-xs font-medium hover:bg-red-500/20">Reddet</button>
+                              <button onClick={() => talepOnayla(talep.id)} className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-emerald-500/20 transition">
+                                Onayla & İşle
+                              </button>
+                              <button onClick={() => talepReddet(talep.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">
+                                Reddet
+                              </button>
                             </td>
                           )}
                         </tr>
@@ -1164,116 +1447,360 @@ function App() {
 
         {/* RAPORLAR SEKMESİ */}
         {aktifSekme === 'raporlar' && girisYapanKullanici.rol !== 'Personel' && (
-          <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4`}>
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Raporlar</h2>
-              <div className="flex gap-2">
-                <button onClick={raporlariArsivle} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">Arşivle</button>
-                <button onClick={excelIndir} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm">Excel</button>
-                <button onClick={pdfIndir} className="bg-rose-600 text-white px-3 py-1.5 rounded text-sm">PDF</button>
+          <div className="space-y-6">
+            
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors`}>
+              <div>
+                <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider">💡 Akıllı Finansal Özet</h3>
+                <p className={`text-sm mt-1 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {enYuksekKategori[0] ? `Bu dönem en çok harcama yapılan kategori: ${enYuksekKategori[0]} (${enYuksekKategori[1].toLocaleString('tr-TR')} TL).` : 'Bu dönemde henüz gider kaydı bulunmuyor.'}
+                  {raporToplamGelir > 0 && ` Gelirlerin gideri karşılama oranı: %${((raporToplamGelir / (raporToplamGider || 1)) * 100).toFixed(0)}.`}
+                </p>
               </div>
             </div>
-            <div className="space-y-3">
-              {Object.entries(aylikRapor).map(([ay, veri]) => (
-                <div key={ay} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} p-4 rounded-xl flex justify-between items-center text-sm`}>
-                  <span className="font-bold">{ay}</span>
-                  <div className="space-x-4">
-                    <span className="text-emerald-500">Gelir: +{veri.gelir} TL</span>
-                    <span className="text-red-500">Gider: -{veri.gider} TL</span>
-                    <span className="font-bold">Net: {veri.gelir - veri.gider} TL</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* GEÇMİŞ SEKMESİ */}
-        {aktifSekme === 'gecmis' && girisYapanKullanici.rol !== 'Personel' && (
-          <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4`}>
-            <h2 className="text-lg font-semibold">İşlem Geçmişi</h2>
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className={`border-b ${tableHeader}`}>
-                  <th className="pb-3">Tarih</th>
-                  <th className="pb-3">Tür</th>
-                  <th className="pb-3">Detay</th>
-                  <th className="pb-3 text-right">Tutar</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${tableDivider}`}>
-                {tumIslemGecmisi.map(item => (
-                  <tr key={item.id} className={tableRowHover}>
-                    <td className="py-3 text-xs text-slate-400">{new Date(item.tarih).toLocaleString()}</td>
-                    <td className="py-3 font-medium">{item.tur}</td>
-                    <td className="py-3">{item.aciklama}</td>
-                    <td className="py-3 text-right font-semibold">{item.tutar} TL</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* YÖNETİM SEKMESİ */}
-        {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol === 'Yonetici' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-6`}>
-              <form onSubmit={kullaniciKaydetVeyaGuncelle} className="space-y-4">
-                <h2 className="text-lg font-semibold">Kullanıcı Ekle/Düzenle</h2>
-                <input type="text" placeholder="Ad Soyad" value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} required />
-                <input type="text" placeholder="Kullanıcı Adı" value={yeniKullaniciForm.kullaniciAdi} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, kullaniciAdi: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} required />
-                <input type="password" placeholder="Şifre" value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} />
-                <select value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}>
-                  <option value="Personel" className={darkMode ? 'bg-slate-900 text-white' : ''}>Personel</option>
-                  <option value="Muhasebe" className={darkMode ? 'bg-slate-900 text-white' : ''}>Muhasebe</option>
-                  <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici</option>
+            <div className={`${cardBg} p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4 items-center justify-between transition-colors`}>
+              <input
+                type="text" placeholder="Raporlarda ara..." 
+                value={raporArama} onChange={(e) => setRaporArama(e.target.value)}
+                className={`border ${inputBg} rounded-lg p-2 text-sm w-full md:w-64`}
+              />
+              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                <select 
+                  value={raporKategori} onChange={(e) => setRaporKategori(e.target.value)}
+                  className={`border ${inputBg} rounded-lg p-1.5 text-sm outline-none cursor-pointer`}
+                >
+                  <option value="">Tüm Kategoriler</option>
+                  {kategoriler.map((kat, idx) => (
+                    <option key={idx} value={kat} className={darkMode ? 'bg-slate-900 text-white' : ''}>{kat}</option>
+                  ))}
                 </select>
-                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded text-sm">Kaydet</button>
-              </form>
-
-              <hr className={darkMode ? 'border-slate-800' : 'border-slate-100'} />
-
-              <form onSubmit={yeniKategoriEkle} className="space-y-4">
-                <h2 className="text-lg font-semibold">Kategori Ekle</h2>
-                <input type="text" placeholder="Kategori Adı" value={yeniKategoriAdi} onChange={(e) => setYeniKategoriAdi(e.target.value)} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} required />
-                <button type="submit" className="w-full bg-emerald-600 text-white py-2 rounded text-sm">Ekle</button>
-              </form>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {kategoriler.map((kat, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs p-1 bg-slate-500/10 rounded">
-                    <span>{kat}</span>
-                    <button onClick={() => kategoriSil(kat)} className="text-red-500">Sil</button>
-                  </div>
-                ))}
+                <div className={`flex items-center gap-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span>Başlangıç:</span>
+                  <input 
+                    type="date" value={raporBaslangic} onChange={(e) => setRaporBaslangic(e.target.value)}
+                    className={`border ${inputBg} rounded-lg p-1.5 text-sm`}
+                  />
+                </div>
+                <div className={`flex items-center gap-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span>Bitiş:</span>
+                  <input 
+                    type="date" value={raporBitis} onChange={(e) => setRaporBitis(e.target.value)}
+                    className={`border ${inputBg} rounded-lg p-1.5 text-sm`}
+                  />
+                </div>
+                {(raporBaslangic || raporBitis || raporArama || raporKategori) && (
+                  <button 
+                    onClick={() => { setRaporBaslangic(''); setRaporBitis(''); setRaporArama(''); setRaporKategori(''); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    Filtreleri Temizle
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className={`${cardBg} md:col-span-2 p-6 rounded-xl shadow-sm border`}>
-              <h2 className="text-lg font-semibold mb-4">Sistem Kullanıcıları</h2>
-              <table className="w-full text-left border-collapse text-sm">
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold">Aylık Finansal Rapor & Detaylı Günlük Görünüm</h2>
+                <div className="flex gap-2">
+                  <button onClick={raporlariArsivle} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">Raporları Arşivle</button>
+                  <button onClick={excelIndir} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">Excel İndir</button>
+                  <button onClick={pdfIndir} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-700 transition">PDF İndir</button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {Object.entries(aylikRapor).filter(([_, veri]) => veri.detaylar.length > 0).length === 0 ? (
+                  <p className="text-center text-slate-500 py-4">Belirtilen kriterlere uygun işlem kaydı bulunmuyor.</p>
+                ) : (
+                  Object.entries(aylikRapor)
+                    .filter(([_, veri]) => veri.detaylar.length > 0)
+                    .map(([ayYil, veri]) => {
+                      const netDurum = veri.gelir - veri.gider;
+                      const isAyOpen = secilenAy === ayYil;
+
+                      return (
+                        <div key={ayYil} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-xl overflow-hidden shadow-sm transition`}>
+                          
+                          <div 
+                            onClick={() => { setSecilenAy(isAyOpen ? null : ayYil); setSecilenGun(null); }}
+                            className={`${darkMode ? 'bg-slate-900 hover:bg-slate-850' : 'bg-slate-50 hover:bg-slate-100'} p-4 flex justify-between items-center cursor-pointer transition`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-base capitalize">{ayYil}</span>
+                              <span className="text-xs bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-medium">
+                                {veri.detaylar.length} İşlem
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-6 text-sm">
+                              <span className="text-emerald-500 font-semibold">Gelir: +{veri.gelir.toLocaleString('tr-TR')} TL</span>
+                              <span className="text-red-500 font-semibold">Gider: -{veri.gider.toLocaleString('tr-TR')} TL</span>
+                              <span className={`font-bold ${netDurum >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                Net: {netDurum.toLocaleString('tr-TR')} TL
+                              </span>
+                              <span className="text-slate-400 text-xs font-bold">{isAyOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                            </div>
+                          </div>
+
+                          {isAyOpen && (
+                            <div className={`p-4 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'} space-y-3`}>
+                              
+                              {(() => {
+                                const gunlerMap = {};
+                                veri.detaylar.forEach(item => {
+                                  const gunKey = new Date(item.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+                                  if (!gunlerMap[gunKey]) gunlerMap[gunKey] = { gelir: 0, gider: 0, detaylar: [] };
+                                  if (item.tip === 'gelir') gunlerMap[gunKey].gelir += item.tutar;
+                                  else gunlerMap[gunKey].gider += item.tutar;
+                                  gunlerMap[gunKey].detaylar.push(item);
+                                });
+
+                                return Object.entries(gunlerMap).map(([gunKey, gunVeri]) => {
+                                  const gunNet = gunVeri.gelir - gunVeri.gider;
+                                  const isGunOpen = secilenGun === `${ayYil}-${gunKey}`;
+                                  const siraliGunDetaylari = [...gunVeri.detaylar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
+                                  return (
+                                    <div key={gunKey} className={`border ${darkMode ? 'border-slate-800' : 'border-slate-200'} rounded-lg overflow-hidden`}>
+                                      
+                                      <div 
+                                        onClick={() => setSecilenGun(isGunOpen ? null : `${ayYil}-${gunKey}`)}
+                                        className={`${darkMode ? 'bg-slate-800/60 hover:bg-slate-800' : 'bg-slate-50 hover:bg-slate-100'} p-3 flex justify-between items-center cursor-pointer transition text-xs`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold">📅 {gunKey}</span>
+                                          <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-medium">
+                                            {gunVeri.detaylar.length} İşlem
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <span className="text-emerald-500 font-semibold">Gelir: +{gunVeri.gelir.toLocaleString('tr-TR')} TL</span>
+                                          <span className="text-red-500 font-semibold">Gider: -{gunVeri.gider.toLocaleString('tr-TR')} TL</span>
+                                          <span className={`font-bold ${gunNet >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                            Net: {gunNet.toLocaleString('tr-TR')} TL
+                                          </span>
+                                          <span className="text-slate-400 font-bold">{isGunOpen ? '▲ Kapat' : '▼ Detay'}</span>
+                                        </div>
+                                      </div>
+
+                                      {isGunOpen && (
+                                        <div className={`p-3 ${darkMode ? 'bg-slate-900 border-t border-slate-800' : 'bg-white border-t border-slate-200'}`}>
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                              <thead>
+                                                <tr className={`border-b ${tableHeader} text-xs`}>
+                                                  <th className="pb-2 font-medium">Saat</th>
+                                                  <th className="pb-2 font-medium">İşlem Türü</th>
+                                                  <th className="pb-2 font-medium">Kaynak / Firma</th>
+                                                  <th className="pb-2 font-medium">Kategori / Açıklama</th>
+                                                  <th className="pb-2 font-medium text-right">Tutar</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className={`divide-y ${tableDivider} text-sm`}>
+                                                {siraliGunDetaylari.map((item, index) => (
+                                                  <tr key={index} className={tableRowHover}>
+                                                    <td className="py-2.5 text-xs text-slate-400">{new Date(item.tarih).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</td>
+                                                    <td className="py-2.5">
+                                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.tip === 'gelir' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {item.tip === 'gelir' ? 'Gelir' : 'Gider'}
+                                                      </span>
+                                                    </td>
+                                                    <td className="py-2.5 font-medium">{item.kaynak || item.kimeOdendi}</td>
+                                                    <td className="py-2.5 text-xs text-slate-400">{item.kategori ? `${item.kategori} - ${item.aciklama}` : item.aciklama}</td>
+                                                    <td className={`py-2.5 text-right font-semibold ${item.tip === 'gelir' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                      {item.tip === 'gelir' ? '+' : '-'}{item.tutar.toLocaleString('tr-TR')} TL
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                    </div>
+                                  );
+                                });
+                              })()}
+
+                            </div>
+                          )}
+
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* İŞLEM GEÇMİŞİ SEKMESİ */}
+        {aktifSekme === 'gecmis' && girisYapanKullanici.rol !== 'Personel' && (
+          <div className={`${cardBg} p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+            <h2 className="text-lg font-semibold">Tüm Sistem İşlem Geçmişi (Audit Trail)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className={`border-b ${tableHeader}`}>
-                    <th className="pb-3">Ad Soyad</th>
-                    <th className="pb-3">Kullanıcı Adı</th>
-                    <th className="pb-3">Rol</th>
-                    <th className="pb-3 text-right">İşlemler</th>
+                  <tr className={`border-b ${tableHeader} text-sm`}>
+                    <th className="pb-3 font-medium">Tarih</th>
+                    <th className="pb-3 font-medium">İşlem Türü</th>
+                    <th className="pb-3 font-medium">Detay</th>
+                    <th className="pb-3 font-medium text-right">Tutar</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${tableDivider}`}>
-                  {kullanicilar.map(kul => (
-                    <tr key={kul.id} className={tableRowHover}>
-                      <td className="py-3 font-medium">{kul.adSoyad}</td>
-                      <td className="py-3">{kul.kullaniciAdi}</td>
-                      <td className="py-3">{kul.rol}</td>
-                      <td className="py-3 text-right space-x-2">
-                        <button onClick={() => kullaniciDuzenleBaslat(kul)} className="text-amber-500 text-xs">Düzenle</button>
-                        <button onClick={() => kullaniciSil(kul.id)} className="text-red-500 text-xs">Silme Yetkisi</button>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className={`divide-y ${tableDivider} text-sm`}>
+                  {tumIslemGecmisi.length === 0 ? (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500">Geçmiş işlem bulunmuyor.</td></tr>
+                  ) : (
+                    tumIslemGecmisi.map((islem) => (
+                      <tr key={islem.id} className={tableRowHover}>
+                        <td className="py-3 text-xs text-slate-400">{new Date(islem.tarih).toLocaleString('tr-TR')}</td>
+                        <td className="py-3 font-medium">{islem.tur}</td>
+                        <td className="py-3 text-sm">{islem.aciklama}</td>
+                        <td className={`py-3 text-right font-semibold ${islem.tip === 'gelir' ? 'text-emerald-500' : islem.tip === 'gider' ? 'text-red-500' : 'text-amber-500'}`}>
+                          {islem.tip === 'gelir' ? '+' : islem.tip === 'gider' ? '-' : ''}{islem.tutar.toLocaleString('tr-TR')} TL
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* KULLANICI & KATEGORİ YÖNETİMİ SEKMESİ */}
+        {aktifSekme === 'kullanicilar' && girisYapanKullanici.rol === 'Yonetici' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`${cardBg} p-6 rounded-xl shadow-sm border h-fit space-y-6 transition-colors`}>
+              <div>
+                <h2 className="text-lg font-semibold mb-4">
+                  {duzenlenenKullaniciId ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı Ekle'}
+                </h2>
+                <form onSubmit={kullaniciKaydetVeyaGuncelle} className="space-y-4">
+                  <input
+                    type="text" placeholder="Ad Soyad"
+                    value={yeniKullaniciForm.adSoyad} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, adSoyad: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <input
+                    type="text" placeholder="Kullanıcı Adı"
+                    value={yeniKullaniciForm.kullaniciAdi} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, kullaniciAdi: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <input
+                    type="password" placeholder={duzenlenenKullaniciId ? "Şifre (Değiştirmeyecekseniz boş bırakın)" : "Şifre"}
+                    value={yeniKullaniciForm.sifre} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, sifre: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} {...(!duzenlenenKullaniciId && { required: true })}
+                  />
+                  <select
+                    value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`}
+                  >
+                    <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici</option>
+                    <option value="Muhasebe" className={darkMode ? 'bg-slate-900 text-white' : ''}>Muhasebe</option>
+                    <option value="Personel" className={darkMode ? 'bg-slate-900 text-white' : ''}>Personel</option>
+                  </select>
+                  <div className="flex gap-2">
+                    <button type="submit" className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                      {duzenlenenKullaniciId ? 'Kullanıcıyı Güncelle' : 'Kullanıcıyı Kaydet'}
+                    </button>
+                    {duzenlenenKullaniciId && (
+                      <button 
+                        type="button" 
+                        onClick={() => { 
+                          setDuzenlenenKullaniciId(null); 
+                          setYeniKullaniciForm({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' }); 
+                        }} 
+                        className={`px-4 rounded-lg text-sm ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}
+                      >
+                        İptal
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
+
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Yeni Kategori Ekle</h2>
+                <form onSubmit={yeniKategoriEkle} className="space-y-4">
+                  <input
+                    type="text" placeholder="Kategori Adı"
+                    value={yeniKategoriAdi} onChange={(e) => setYeniKategoriAdi(e.target.value)}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <button type="submit" className="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm">
+                    Kategoriyi Kaydet
+                  </button>
+                </form>
+                <div className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                  {kategoriler.map((kat, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs p-1.5 rounded bg-slate-500/10">
+                      <span>{kat}</span>
+                      <button type="button" onClick={() => kategoriSil(kat)} className="text-red-500 font-bold hover:underline">Sil</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <hr className={`${darkMode ? 'border-slate-800' : 'border-slate-100'}`} />
+
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Şifremi Güncelle</h2>
+                <form onSubmit={sifreGuncelle} className="space-y-4">
+                  <input
+                    type="password" placeholder="Yeni Şifre"
+                    value={sifreForm.yeniSifre} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifre: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <input
+                    type="password" placeholder="Yeni Şifre (Tekrar)"
+                    value={sifreForm.yeniSifreTekrar} onChange={(e) => setSifreForm({ ...sifreForm, yeniSifreTekrar: e.target.value })}
+                    className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
+                  />
+                  <button type="submit" className={`w-full ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-800 hover:bg-slate-900'} text-white font-medium py-2.5 rounded-lg transition text-sm`}>
+                    Şifreyi Değiştir
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className={`${cardBg} md:col-span-2 p-6 rounded-xl shadow-sm border space-y-4 transition-colors`}>
+              <h2 className="text-lg font-semibold">Sistem Kullanıcıları</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className={`border-b ${tableHeader} text-sm`}>
+                      <th className="pb-3 font-medium">Ad Soyad</th>
+                      <th className="pb-3 font-medium">Kullanıcı Adı</th>
+                      <th className="pb-3 font-medium">Rol</th>
+                      <th className="pb-3 font-medium text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${tableDivider} text-sm`}>
+                    {kullanicilar.map((kul) => (
+                      <tr key={kul.id} className={tableRowHover}>
+                        <td className="py-3 font-medium">{kul.adSoyad}</td>
+                        <td className="py-3">{kul.kullaniciAdi}</td>
+                        <td className="py-3">
+                          <span className={`${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full text-xs font-medium`}>
+                            {kul.rol}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right space-x-2">
+                          <button onClick={() => kullaniciDuzenleBaslat(kul)} className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition">Düzenle</button>
+                          <button onClick={() => kullaniciSil(kul.id)} className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-500/20 transition">Sil</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
