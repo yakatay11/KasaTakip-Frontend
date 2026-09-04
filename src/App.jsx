@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -143,7 +143,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI (%0, %1, %10, %20)
+  // KDV HESAPLAMA YARDIMCISI
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -263,7 +263,7 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // SÜPER AKILLI FİŞ OKUTMA
+  // SÜPER AKILLI FİŞ OKUTMA (GELİŞTİRİLMİŞ KATEGORİ LİSTESİ)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
@@ -282,7 +282,8 @@ function App() {
       let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
       let fisTuruAciklamasi = 'Genel Fiş Alışverişi';
 
-      const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP', 'LUKOIL'];
+      // Genişletilmiş ve güncellenmiş anahtar kelimeler
+      const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP', 'LUKOIL', 'OTOBÜS', 'BİLET', 'ULAŞIM', 'SEYAHAT', 'ULAŞTIRMA', 'TAKSİ', 'METRO', 'TREN', 'YOLCU'];
       const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK'];
       const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR', 'OFİS'];
       const faturaKelimeleri = ['ELEKTRİK', 'SU İDARESİ', 'İGDAŞ', 'TURKCELL', 'VODAFONE', 'TÜRK TELEKOM', 'İNTERNET', 'FATURA'];
@@ -290,7 +291,7 @@ function App() {
 
       if (ulasimKelimeleri.some(k => textUpper.includes(k))) {
           tahminEdilenKategori = 'Ulaşım ve Akaryakıt';
-          fisTuruAciklamasi = 'Akaryakıt / Benzin Fişi';
+          fisTuruAciklamasi = 'Ulaşım / Akaryakıt Fişi';
       } else if (yemekKelimeleri.some(k => textUpper.includes(k))) {
           tahminEdilenKategori = 'Yemek ve İkram';
           fisTuruAciklamasi = 'Yemek / Market Fişi';
@@ -308,7 +309,7 @@ function App() {
       let firmaAdi = '';
       const resmiFirmaSatiri = satirlar.find(s => {
           const u = s.toUpperCase();
-          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL');
+          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('TURİZM');
       });
 
       if (resmiFirmaSatiri) {
@@ -948,7 +949,7 @@ function App() {
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE (DOĞRU KDV ÇARPIMI: 5000 * 0.20 = 1000) */}
+              {/* YENİ GİDER EKLE */}
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
                 <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
                 <form onSubmit={giderEkle} className="space-y-4">
@@ -966,7 +967,7 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI VE ANLIK DOĞRU HESAPLAMA */}
+                  {/* KDV ORANI SEÇİMİ VE CANLI HESAPLAMA */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
                     <div className="flex gap-2 items-center">
