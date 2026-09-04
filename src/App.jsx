@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -122,8 +122,6 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-  
-  // ROL BAZLI DİNAMİK BAŞLANGIÇ SEKMESİ (Personel yenileyince ekrandan düşmez)
   const [aktifSekme, setAktifSekme] = useState(() => {
     const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
     if (savedUser) {
@@ -143,7 +141,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI
+  // KDV HESAPLAMA YARDIMCISI (Doğrudan Çarpım)
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -263,7 +261,7 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // SÜPER AKILLI FİŞ OKUTMA (OTOMATİK KDV ORANI TESPİTİ)
+  // SÜPER AKILLI FİŞ OKUTMA (HASSAS KDV ORANI & KATEGORİ TESPİTİ)
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
@@ -326,15 +324,9 @@ function App() {
       const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
       const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
 
-      // OTOMATİK KDV ORANI TESPİTİ (Herhangi bir yüzdelik oranı veya küsuratlı tevkifat oranını yakalar)
-      let tespitEdilenKdvOrani = '20';
-      const kdvOranMatch = text.match(/%\s*(\d+([.,]\d+)?)/);
-      if (kdvOranMatch && kdvOranMatch[1]) {
-          tespitEdilenKdvOrani = kdvOranMatch[1].replace(',', '.');
-      }
-
+      // Tutar Bulma
       let bulunanTutar = '';
-      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]ل|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
       if (tutarArama && tutarArama[1]) {
         bulunanTutar = tutarArama[1].replace(',', '.');
@@ -344,6 +336,22 @@ function App() {
           const sayiDegerleri = tumFiyatlar.map(s => parseFloat(s.replace(',', '.')));
           bulunanTutar = Math.max(...sayiDegerleri).toString();
         }
+      }
+
+      // HASSAS KDV ORANI TESPİTİ (Yazılı yüzde veya KDV tutarı ile otomatik oran hesaplama)
+      let tespitEdilenKdvOrani = '0';
+      const kdvOranMatch = text.match(/(?:KDV\s*1?O?R?A?N?I?|%)\s*(\d+([.,]\d+)?)/i);
+      const kdvTutarRegex = text.match(/(?:KDV|TOPLAM KDV|HESAPLANAN KDV)\s*[:=.\-]?\s*(\d+[.,]\d{2})/i);
+
+      if (kdvOranMatch && kdvOranMatch[1]) {
+          tespitEdilenKdvOrani = kdvOranMatch[1].replace(',', '.');
+      } else if (kdvTutarRegex && kdvTutarRegex[1] && bulunanTutar) {
+          const kdvTutarNum = parseFloat(kdvTutarRegex[1].replace(',', '.'));
+          const toplamTutarNum = parseFloat(bulunanTutar);
+          if (toplamTutarNum > kdvTutarNum && kdvTutarNum > 0) {
+              const matrah = toplamTutarNum - kdvTutarNum;
+              tespitEdilenKdvOrani = ((kdvTutarNum / matrah) * 100).toFixed(2);
+          }
       }
 
       setHedefForm({
@@ -446,7 +454,7 @@ function App() {
   const sifreGuncelle = async (e) => {
     e.preventDefault();
     if (!sifreForm.yeniSifre) return toast.error("Yeni şifre giriniz.");
-    if (sifreForm.yeniSifre !== sifreForm.yeniSifreTekrar) return toast.error("Şifler uyuşmuyor!");
+    if (sifreForm.yeniSifre !== sifreForm.yeniSifreTekrar) return toast.error("Şifreler uyuşmuyor!");
 
     try {
       const response = await fetch(`${API_URL}/Kullanici/${girisYapanKullanici.id}/sifre`, {
@@ -949,7 +957,7 @@ function App() {
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE (ESNEK KDV GİRİŞİ VE OTOMATİK TESPİT) */}
+              {/* YENİ GİDER EKLE */}
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
                 <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
                 <form onSubmit={giderEkle} className="space-y-4">
@@ -967,14 +975,14 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI GİRİŞİ (TEVKİFAT VEYA ÖZEL ORANLAR İÇİN ESNEK SAYI KUTUSU) */}
+                  {/* ESNEK KDV ORANI GİRİŞİ */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="Örn: 20, 10, 8, 1.5" 
+                        placeholder="Örn: 20, 16.67, 10, 8" 
                         value={giderForm.kdvOrani} 
                         onChange={(e) => setGiderForm({ ...giderForm, kdvOrani: e.target.value })} 
                         className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} 
@@ -1054,14 +1062,14 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI VE CANLI GÖSTERGE */}
+                  {/* KDV ORANI GİRİŞİ */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="Örn: 20, 10, 8, 1.5" 
+                        placeholder="Örn: 20, 16.67, 10, 8" 
                         value={talepForm.kdvOrani} 
                         onChange={(e) => setTalepForm({ ...talepForm, kdvOrani: e.target.value })} 
                         className={`w-full border ${inputBg} rounded-lg p-2 text-sm`} 
