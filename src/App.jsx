@@ -122,6 +122,8 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
+  
+  // ROL BAZLI DİNAMİK BAŞLANGIÇ SEKMESİ
   const [aktifSekme, setAktifSekme] = useState(() => {
     const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
     if (savedUser) {
@@ -141,7 +143,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI (Doğrudan Çarpım)
+  // KDV HESAPLAMA YARDIMCISI
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -261,7 +263,7 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // SÜPER AKILLI FİŞ OKUTMA (HASSAS KDV ORANI & KATEGORİ TESPİTİ)
+  // SÜPER AKILLI FİŞ OKUTMA
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
@@ -324,9 +326,8 @@ function App() {
       const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
       const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
 
-      // Tutar Bulma
       let bulunanTutar = '';
-      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]ل|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
       if (tutarArama && tutarArama[1]) {
         bulunanTutar = tutarArama[1].replace(',', '.');
@@ -338,7 +339,6 @@ function App() {
         }
       }
 
-      // HASSAS KDV ORANI TESPİTİ (Yazılı yüzde veya KDV tutarı ile otomatik oran hesaplama)
       let tespitEdilenKdvOrani = '0';
       const kdvOranMatch = text.match(/(?:KDV\s*1?O?R?A?N?I?|%)\s*(\d+([.,]\d+)?)/i);
       const kdvTutarRegex = text.match(/(?:KDV|TOPLAM KDV|HESAPLANAN KDV)\s*[:=.\-]?\s*(\d+[.,]\d{2})/i);
@@ -1062,7 +1062,7 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI GİRİŞİ */}
+                  {/* KDV ORANI */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
@@ -1199,7 +1199,7 @@ function App() {
                 <select value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}>
                   <option value="Personel" className={darkMode ? 'bg-slate-900 text-white' : ''}>Personel</option>
                   <option value="Muhasebe" className={darkMode ? 'bg-slate-900 text-white' : ''}>Muhasebe</option>
-                  <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici</option>
+                  <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici / Sistem Yöneticisi</option>
                 </select>
                 <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded text-sm">Kaydet</button>
               </form>
@@ -1214,7 +1214,7 @@ function App() {
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {kategoriler.map((kat, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs p-1 bg-slate-500/10 rounded">
-                    <span>{kat}</span>
+                    <span><span>{kat}</span></span>
                     <button onClick={() => kategoriSil(kat)} className="text-red-500">Sil</button>
                   </div>
                 ))}
@@ -1255,4 +1255,4 @@ function App() {
   )
 }
 
-export default App
+export data App -> export default App
