@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -130,7 +130,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI (Dahil KDV Üzerinden)
+  // KDV HESAPLAMA YARDIMCISI
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -138,6 +138,13 @@ function App() {
     if (tutar <= 0 || oran === 0) return '';
     const kdvTutar = (tutar - (tutar / (1 + (oran / 100)))).toFixed(2);
     return `KDV: %${oran} (${kdvTutar} TL)`;
+  };
+
+  const anlikKdvHesapla = (tutarStr, oranStr) => {
+    const tutar = parseFloat(tutarStr) || 0;
+    const oran = parseFloat(oranStr) || 0;
+    if (tutar <= 0 || oran === 0) return '0.00 TL';
+    return (tutar - (tutar / (1 + (oran / 100)))).toFixed(2) + ' TL';
   };
 
   // ==========================================
@@ -259,7 +266,6 @@ function App() {
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
       const textUpper = text.toUpperCase();
 
-      // 1. Kategori ve Tür Tespiti
       let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
       let fisTuruAciklamasi = 'Genel Fiş Alışverişi';
 
@@ -286,7 +292,6 @@ function App() {
           fisTuruAciklamasi = 'Bakım ve Onarım Fişi';
       }
 
-      // 2. Firma Adı
       let firmaAdi = '';
       const resmiFirmaSatiri = satirlar.find(s => {
           const u = s.toUpperCase();
@@ -305,18 +310,15 @@ function App() {
       }
       firmaAdi = firmaAdi.replace(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,-]/g, '').substring(0, 40).trim();
 
-      // 3. Tarih
       const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
       const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
 
-      // 4. KDV Oranı Tespiti
       let tespitEdilenKdvOrani = '20';
-      const kdvOranMatch = text.match(/%\s*(1|8|18|20)/);
+      const kdvOranMatch = text.match(/%\s*(1|10|20)/);
       if (kdvOranMatch) {
           tespitEdilenKdvOrani = kdvOranMatch[1];
       }
 
-      // 5. Tutar Bulma
       let bulunanTutar = '';
       const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
@@ -414,7 +416,7 @@ function App() {
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      toast.error("Sunucu bağlantı hatası.");
+      toast.error("Sunucuya bağlanırken bir hata oluştu.");
     } finally {
       setYukleniyor(false);
     }
@@ -933,7 +935,7 @@ function App() {
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE (KDV KUTUCUĞU İLE) */}
+              {/* YENİ GİDER EKLE (CANLI KDV GÖSTERGELİ) */}
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
                 <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
                 <form onSubmit={giderEkle} className="space-y-4">
@@ -951,20 +953,24 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI SEÇİM KUTUCUĞU */}
+                  {/* KDV ORANI VE CANLI HESAPLANAN KDV GÖSTERGESİ */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
-                    <select 
-                      value={giderForm.kdvOrani} 
-                      onChange={(e) => setGiderForm({ ...giderForm, kdvOrani: e.target.value })} 
-                      className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}
-                    >
-                      <option value="0" className={darkMode ? 'bg-slate-900 text-white' : ''}>KDV Yok (%0)</option>
-                      <option value="1" className={darkMode ? 'bg-slate-900 text-white' : ''}>%1 KDV</option>
-                      <option value="8" className={darkMode ? 'bg-slate-900 text-white' : ''}>%8 KDV</option>
-                      <option value="18" className={darkMode ? 'bg-slate-900 text-white' : ''}>%18 KDV</option>
-                      <option value="20" className={darkMode ? 'bg-slate-900 text-white' : ''}>%20 KDV</option>
-                    </select>
+                    <div className="flex gap-2 items-center">
+                      <select 
+                        value={giderForm.kdvOrani} 
+                        onChange={(e) => setGiderForm({ ...giderForm, kdvOrani: e.target.value })} 
+                        className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}
+                      >
+                        <option value="0" className={darkMode ? 'bg-slate-900 text-white' : ''}>KDV Yok (%0)</option>
+                        <option value="1" className={darkMode ? 'bg-slate-900 text-white' : ''}>%1 KDV</option>
+                        <option value="10" className={darkMode ? 'bg-slate-900 text-white' : ''}>%10 KDV</option>
+                        <option value="20" className={darkMode ? 'bg-slate-900 text-white' : ''}>%20 KDV</option>
+                      </select>
+                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap">
+                        KDV: {anlikKdvHesapla(giderForm.tutar, giderForm.kdvOrani)}
+                      </div>
+                    </div>
                   </div>
 
                   <input type="text" placeholder="Açıklama" value={giderForm.aciklama} onChange={(e) => setGiderForm({ ...giderForm, aciklama: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} />
@@ -1015,7 +1021,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (PERSONEL İÇİN KDV KUTUCUĞU İLE) */}
+        {/* TALEPLER SEKMESİ (PERSONEL İÇİN CANLI KDV GÖSTERGELİ) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
@@ -1036,20 +1042,24 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV SEÇİMİ (PERSONEL) */}
+                  {/* KDV SEÇİMİ VE CANLI GÖSTERGE */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
-                    <select 
-                      value={talepForm.kdvOrani} 
-                      onChange={(e) => setTalepForm({ ...talepForm, kdvOrani: e.target.value })} 
-                      className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}
-                    >
-                      <option value="0" className={darkMode ? 'bg-slate-900 text-white' : ''}>KDV Yok (%0)</option>
-                      <option value="1" className={darkMode ? 'bg-slate-900 text-white' : ''}>%1 KDV</option>
-                      <option value="8" className={darkMode ? 'bg-slate-900 text-white' : ''}>%8 KDV</option>
-                      <option value="18" className={darkMode ? 'bg-slate-900 text-white' : ''}>%18 KDV</option>
-                      <option value="20" className={darkMode ? 'bg-slate-900 text-white' : ''}>%20 KDV</option>
-                    </select>
+                    <div className="flex gap-2 items-center">
+                      <select 
+                        value={talepForm.kdvOrani} 
+                        onChange={(e) => setTalepForm({ ...talepForm, kdvOrani: e.target.value })} 
+                        className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}
+                      >
+                        <option value="0" className={darkMode ? 'bg-slate-900 text-white' : ''}>KDV Yok (%0)</option>
+                        <option value="1" className={darkMode ? 'bg-slate-900 text-white' : ''}>%1 KDV</option>
+                        <option value="10" className={darkMode ? 'bg-slate-900 text-white' : ''}>%10 KDV</option>
+                        <option value="20" className={darkMode ? 'bg-slate-900 text-white' : ''}>%20 KDV</option>
+                      </select>
+                      <div className="bg-blue-500/10 text-blue-400 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap">
+                        KDV: {anlikKdvHesapla(talepForm.tutar, talepForm.kdvOrani)}
+                      </div>
+                    </div>
                   </div>
 
                   <input type="text" placeholder="Açıklama" value={talepForm.aciklama} onChange={(e) => setTalepForm({ ...talepForm, aciklama: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} />
