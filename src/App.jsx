@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -130,13 +130,13 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI
+  // KDV HESAPLAMA YARDIMCISI (Doğrudan Çarpım)
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
     const oran = parseFloat(oranStr) || 0;
     if (tutar <= 0 || oran === 0) return '';
-    const kdvTutar = (tutar - (tutar / (1 + (oran / 100)))).toFixed(2);
+    const kdvTutar = (tutar * (oran / 100)).toFixed(2);
     return `KDV: %${oran} (${kdvTutar} TL)`;
   };
 
@@ -144,7 +144,7 @@ function App() {
     const tutar = parseFloat(tutarStr) || 0;
     const oran = parseFloat(oranStr) || 0;
     if (tutar <= 0 || oran === 0) return '0.00 TL';
-    return (tutar - (tutar / (1 + (oran / 100)))).toFixed(2) + ' TL';
+    return (tutar * (oran / 100)).toFixed(2) + ' TL';
   };
 
   // ==========================================
@@ -416,7 +416,7 @@ function App() {
       }
     } catch (error) { 
       console.error("Giriş hatası:", error); 
-      toast.error("Sunucuya bağlanırken bir hata oluştu.");
+      toast.error("Sunucu bağlantı hatası.");
     } finally {
       setYukleniyor(false);
     }
@@ -935,13 +935,13 @@ function App() {
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE (CANLI KDV GÖSTERGELİ) */}
+              {/* YENİ GİDER EKLE (DÜZELTİLMİŞ KDV %0, %1, %10, %20 VE DOĞRUDAN ÇARPIM HESAPLAMA) */}
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
                 <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
                 <form onSubmit={giderEkle} className="space-y-4">
                   <div>
                     <input type="file" accept="image/*" capture="environment" onChange={fisOkut} className="hidden" id="kamera-gider" />
-                    <label htmlFor="kamera-gider" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 text-sm cursor-pointer flex items-center justify-center gap-2 mb-2">
+                    <label htmlFor="kamera-gider" className="w-full bg-slate-800 text-white font-medium py-2.5 rounded-lg hover:bg-slate-700 transition text-sm text-center cursor-pointer flex items-center justify-center gap-2 mb-2">
                       📸 Kamerayla Fiş Okut
                     </label>
                   </div>
@@ -953,7 +953,7 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV ORANI VE CANLI HESAPLANAN KDV GÖSTERGESİ */}
+                  {/* DÜZELTİLMİŞ KDV SEÇİMİ VE % ORANLARI (%0, %1, %10, %20) */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
                     <div className="flex gap-2 items-center">
@@ -1021,7 +1021,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (PERSONEL İÇİN CANLI KDV GÖSTERGELİ) */}
+        {/* TALEPLER SEKMESİ (PERSONEL İÇİN GÜNCELLENMİŞ KDV) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
@@ -1042,7 +1042,7 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={talepForm.tutar} onChange={(e) => setTalepForm({ ...talepForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* KDV SEÇİMİ VE CANLI GÖSTERGE */}
+                  {/* KDV ORANI VE CANLI GÖSTERGE */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
                     <div className="flex gap-2 items-center">
