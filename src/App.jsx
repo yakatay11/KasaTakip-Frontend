@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -297,7 +297,6 @@ function App() {
 
       // 4. KDV TESPİTİ (Oranı ve Tutarını yakalama)
       let kdvAciklama = '';
-      // Örn: KDV %18 14.50 veya %18 ... tutar
       const kdvMatch = text.match(/(?:KDV)?\s*(?:%|ORAN)?\s*(1|8|18|20)\s*(?:%|KDV)?\s*[:=-]?\s*(\d+[.,]\d{2})/i) || text.match(/%\s*(1|8|18|20).*?(\d+[.,]\d{2})/i);
       if (kdvMatch) {
           kdvAciklama = `KDV: %${kdvMatch[1]} (${kdvMatch[2]} TL)`;
@@ -350,7 +349,9 @@ function App() {
 
   const fisOkut = (e) => fisOkutGenel(e, giderForm, setGiderForm);
 
-  // --- TEMEL FONKSİYONLAR ---
+  // ==========================================
+  // KORUMALI VERİ ÇEKME (SUNUCU SIFIRLENSE BİLE LOKALİ EZMEZ)
+  // ==========================================
   const verileriGetir = async () => {
     try {
       const giderRes = await fetch(`${API_URL}/Gider`);
@@ -359,18 +360,26 @@ function App() {
       const talepRes = await fetch(`${API_URL}/GiderTalebi`);
       const kulRes = await fetch(`${API_URL}/Kullanici`);
       
-      let apiGiderler = [];
-      let apiGelirler = [];
-
-      if (giderRes.ok) apiGiderler = await giderRes.json();
-      if (gelirRes.ok) apiGelirler = await gelirRes.json();
-
-      setGiderler(apiGiderler);
-      setGelirler(apiGelirler);
-      if (raporRes.ok) setArşivRaporlar(await raporRes.json());
-      if (talepRes.ok) setGiderTalepleri(await talepRes.json());
-      if (kulRes.ok) setKullanicilar(await kulRes.json());
-
+      if (giderRes.ok) {
+        const data = await giderRes.json();
+        if (data && data.length > 0) setGiderler(data);
+      }
+      if (gelirRes.ok) {
+        const data = await gelirRes.json();
+        if (data && data.length > 0) setGelirler(data);
+      }
+      if (raporRes.ok) {
+        const data = await raporRes.json();
+        if (data && data.length > 0) setArşivRaporlar(data);
+      }
+      if (talepRes.ok) {
+        const data = await talepRes.json();
+        if (data) setGiderTalepleri(data);
+      }
+      if (kulRes.ok) {
+        const data = await kulRes.json();
+        if (data && data.length > 0) setKullanicilar(data);
+      }
     } catch (error) { 
       console.error("Veri çekme hatası:", error); 
     }
