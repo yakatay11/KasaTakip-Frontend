@@ -47,7 +47,7 @@ function App() {
   // --- ŞİFRE GÜNCELLEME STATE'İ ---
   const [sifreForm, setSifreForm] = useState({ yeniSifre: '', yeniSifreTekrar: '' });
 
-  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER (KULLANICILAR KORUMAYA ALINDI) ---
+  // --- YEREL DEPOLAMA DESTEKLİ LİSTELER ---
   const [giderler, setGiderler] = useState(() => {
     const saved = localStorage.getItem('kasa_giderler');
     return saved ? JSON.parse(saved) : [];
@@ -122,7 +122,20 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-  const [aktifSekme, setAktifSekme] = useState('islemler');
+  
+  // ROL BAZLI DİNAMİK BAŞLANGIÇ SEKMESİ (Personel yenileyince ekrandan düşmez)
+  const [aktifSekme, setAktifSekme] = useState(() => {
+    const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        return user.rol === 'Personel' ? 'talepler' : 'islemler';
+      } catch (e) {
+        return 'islemler';
+      }
+    }
+    return 'islemler';
+  });
 
   // --- LOCAL STORAGE YEDEKLEMELERİ ---
   useEffect(() => localStorage.setItem('kasa_giderForm', JSON.stringify(giderForm)), [giderForm]);
@@ -130,7 +143,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCISI (Doğrudan Çarpım)
+  // KDV HESAPLAMA YARDIMCISI (%0, %1, %10, %20)
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -935,7 +948,7 @@ function App() {
                 </form>
               </div>
 
-              {/* YENİ GİDER EKLE (DÜZELTİLMİŞ KDV %0, %1, %10, %20 VE DOĞRUDAN ÇARPIM HESAPLAMA) */}
+              {/* YENİ GİDER EKLE (DOĞRU KDV ÇARPIMI: 5000 * 0.20 = 1000) */}
               <div className={`${cardBg} p-6 rounded-xl shadow-sm border`}>
                 <h2 className="text-lg font-semibold mb-4">{duzenlenenGiderId ? 'Gideri Düzenle' : 'Yeni Gider Ekle'}</h2>
                 <form onSubmit={giderEkle} className="space-y-4">
@@ -953,7 +966,7 @@ function App() {
 
                   <input type="number" placeholder="Tutar (TL)" value={giderForm.tutar} onChange={(e) => setGiderForm({ ...giderForm, tutar: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required />
 
-                  {/* DÜZELTİLMİŞ KDV SEÇİMİ VE % ORANLARI (%0, %1, %10, %20) */}
+                  {/* KDV ORANI VE ANLIK DOĞRU HESAPLAMA */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">KDV Oranı Seçin:</label>
                     <div className="flex gap-2 items-center">
@@ -1021,7 +1034,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ (PERSONEL İÇİN GÜNCELLENMİŞ KDV) */}
+        {/* TALEPLER SEKMESİ */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
