@@ -229,39 +229,60 @@ function App() {
   }, [gelirForm, gelirTaslakId, girisYapanKullanici, duzenlenenGelirId]);
 
   // ==========================================
-  // HIZLANDIRILMIŞ VE KONTROLLÜ FİŞ OKUTMA (OCR) FONKSİYONU
+  // GELİŞMİŞ VE AKILLI FİŞ OKUTMA (OCR) FONKSİYONU
   // ==========================================
   const fisOkutGenel = async (e, hedefForm, setHedefForm) => {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
-    const toastId = toast.loading("📸 Fiş hızla analiz ediliyor, lütfen bekleyin...");
+    const toastId = toast.loading("📸 Fiş yapay zeka ile taranıyor, lütfen bekleyin...");
     
     try {
       const { data: { text } } = await Tesseract.recognize(dosya, 'tur', {
         logger: m => {} 
       });
 
-      const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-      const firmaAdi = satirlar[0] ? satirlar[0].substring(0, 35) : '';
+      // 1. Tüm satırları temizle ve boşlukları al
+      const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
 
-      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L)\s*[:=]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+      // 2. Firma Adı Bulma (İçinde harf olan ilk geçerli metni bul)
+      const firmaSatiri = satirlar.find(s => /[a-zA-ZğüşöçİĞÜŞÖÇ]/.test(s) && s.length > 3) || '';
+      const firmaAdi = firmaSatiri.substring(0, 35);
+
+      // 3. Tutar Bulma Mantığı (Çok daha akıllı)
       let bulunanTutar = '';
+
+      // YÖNTEM A: Önce klasik kelime bazlı arama yap (TOPLAM, TUTAR, KDV DAHİL vb.)
+      const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
+
       if (tutarArama && tutarArama[1]) {
         bulunanTutar = tutarArama[1].replace(',', '.');
+      } else {
+        // YÖNTEM B: Eğer kelimeyi yanlış okuduysa (Örn: T0PLAM), fişteki "XX.XX" formatındaki TÜM para birimlerini bul...
+        const tumFiyatlar = text.match(/\d+[.,]\d{2}/g);
+        if (tumFiyatlar && tumFiyatlar.length > 0) {
+          // ...ve içlerinden EN BÜYÜK olanı "Toplam Tutar" olarak kabul et!
+          const sayiDegerleri = tumFiyatlar.map(s => parseFloat(s.replace(',', '.')));
+          bulunanTutar = Math.max(...sayiDegerleri).toString();
+        }
       }
 
       setHedefForm({
         ...hedefForm,
         kimeOdenecek: firmaAdi,
         tutar: bulunanTutar,
-        aciklama: 'Kameradan okundu',
+        aciklama: 'Kameradan otomatik okundu',
       });
 
-      toast.success("Fiş okundu! Bilgileri kontrol edip talep gönderebilirsiniz.", { id: toastId });
+      if (bulunanTutar) {
+        toast.success(`Fiş başarıyla okundu! Tutar: ${bulunanTutar} TL`, { id: toastId });
+      } else {
+        toast.error("Metin tarandı ancak tutar bulunamadı. Tutarı elle giriniz.", { id: toastId });
+      }
+
     } catch (error) {
       console.error("OCR Hatası:", error);
-      toast.error("Fiş okunamadı, tekrar deneyin.", { id: toastId });
+      toast.error("Fiş okunamadı. Lütfen daha aydınlık bir ortamda çekin.", { id: toastId });
     }
   };
 
@@ -1180,7 +1201,7 @@ function App() {
           </>
         )}
 
-        {/* TALEPLER SEKMESİ */}
+        {/* TALEPLER SEKMESİ (YÖNETİCİ/MUHASEBE İÇİN ONAY VE REDDET BUTONLARI) */}
         {aktifSekme === 'talepler' && (
           <div className="space-y-6">
             {girisYapanKullanici.rol === 'Personel' && (
