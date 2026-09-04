@@ -122,7 +122,18 @@ function App() {
   });
 
   const [yeniKullaniciForm, setYeniKullaniciForm] = useState({ adSoyad: '', kullaniciAdi: '', sifre: '', rol: 'Personel' });
-  const [aktifSekme, setAktifSekme] = useState('islemler');
+  const [aktifSekme, setAktifSekme] = useState(() => {
+    const savedUser = localStorage.getItem('kasa_girisYapanKullanici');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        return user.rol === 'Personel' ? 'talepler' : 'islemler';
+      } catch (e) {
+        return 'islemler';
+      }
+    }
+    return 'islemler';
+  });
 
   // --- LOCAL STORAGE YEDEKLEMELERİ ---
   useEffect(() => localStorage.setItem('kasa_giderForm', JSON.stringify(giderForm)), [giderForm]);
@@ -130,7 +141,7 @@ function App() {
   useEffect(() => localStorage.setItem('kasa_talepForm', JSON.stringify(talepForm)), [talepForm]);
 
   // ==========================================
-  // KDV HESAPLAMA YARDIMCILARI (Esnek ve Küsuratlı)
+  // KDV HESAPLAMA YARDIMCILARI
   // ==========================================
   const kdvHesaplaMetni = (tutarStr, oranStr) => {
     const tutar = parseFloat(tutarStr) || 0;
@@ -153,12 +164,12 @@ function App() {
   useEffect(() => {
     if (!girisYapanKullanici || girisYapanKullanici.rol === 'Personel') return;
     if (duzenlenenGiderId) return; 
-    if (!giderForm.kimeOdenecek && !giderForm.tutar && !giderForm.kategori && !giderForm.aciklama) return;
+    if (!giderForm.kimeOdenecek && !giderForm.tutar && !giderForm.aciklama) return;
 
     const timer = setTimeout(async () => {
       const userRol = girisYapanKullanici.rol;
       const kdvText = kdvHesaplaMetni(giderForm.tutar, giderForm.kdvOrani);
-      const nihaiAciklama = kdvText ? `${giderForm.aciklama} | ${kdvText}` : giderForm.aciklama;
+      const nihaiAciklama = kdvText ? `${giderForm.aciklama ? giderForm.aciklama + ' | ' : ''}${kdvText}` : giderForm.aciklama;
 
       if (giderTaslakId) {
         try {
@@ -266,12 +277,11 @@ function App() {
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
       const textUpper = text.toUpperCase();
 
-      // 1. KATEGORİ VE TÜR TESPİTİ
       let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
       let fisTuruAciklamasi = 'Genel Fiş Alışverişi';
 
       const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP', 'LUKOIL', 'OTOBÜS', 'BİLET', 'ULAŞIM', 'SEYAHAT', 'ULAŞTIRMA', 'TAKSİ', 'METRO', 'TREN', 'YOLCU'];
-      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK', 'GIDA'];
+      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101', 'CARREFOUR', 'YEMEK'];
       const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR', 'OFİS'];
       const faturaKelimeleri = ['ELEKTRİK', 'SU İDARESİ', 'İGDAŞ', 'TURKCELL', 'VODAFONE', 'TÜRK TELEKOM', 'İNTERNET', 'FATURA'];
       const bakimKelimeleri = ['SERVİS', 'OTO TAMİR', 'BAKIM', 'ONARIM', 'YEDEK PARÇA', 'USTA'];
@@ -293,11 +303,10 @@ function App() {
           fisTuruAciklamasi = 'Bakım ve Onarım Fişi';
       }
 
-      // 2. TEMİZ FİRMA ADI TESPİTİ
       let firmaAdi = '';
       const resmiFirmaSatiri = satirlar.find(s => {
           const u = s.toUpperCase();
-          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('GIDA');
+          return u.includes('A.Ş') || u.includes('LTD') || u.includes('TİC') || u.includes('SAN') || u.includes('MARKET') || u.includes('PETROL') || u.includes('TURİZM');
       });
 
       if (resmiFirmaSatiri) {
@@ -312,11 +321,9 @@ function App() {
       }
       firmaAdi = firmaAdi.replace(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,-]/g, '').substring(0, 40).trim();
 
-      // 3. TARİH TESPİTİ
       const tarihMatch = text.match(/\b(\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\b/);
       const fisTarihiStr = tarihMatch ? `Tarih: ${tarihMatch[1]}` : '';
 
-      // 4. EN YÜKSEK TUTARI BULMA
       let bulunanTutar = '';
       const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV DAH[Iİ]L|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
@@ -330,7 +337,6 @@ function App() {
         }
       }
 
-      // 5. HASSAS KDV TESPİTİ (Oranı ve Tutarını yakalama)
       let tespitEdilenKdvOrani = '0';
       const kdvOranMatch = text.match(/(?:KDV\s*1?O?R?A?N?I?|%)\s*(\d+([.,]\d+)?)/i);
       const kdvTutarRegex = text.match(/(?:KDV|TOPLAM KDV|HESAPLANAN KDV)\s*[:=.\-]?\s*(\d+[.,]\d{2})/i);
@@ -586,7 +592,7 @@ function App() {
     try {
       const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
       const kdvText = kdvHesaplaMetni(giderForm.tutar, giderForm.kdvOrani);
-      const nihaiAciklama = kdvText ? `${giderForm.aciklama} | ${kdvText}` : giderForm.aciklama;
+      const nihaiAciklama = kdvText ? `${giderForm.aciklama ? giderForm.aciklama + ' | ' : ''}${kdvText}` : giderForm.aciklama;
 
       if (duzenlenenGiderId) {
         await fetch(`${API_URL}/Gider/${duzenlenenGiderId}?rol=${userRol}`, {
@@ -636,7 +642,7 @@ function App() {
 
   const giderDuzenleBaslat = (item) => {
     setDuzenlenenGiderId(item.id);
-    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, kdvOrani: '0', aciklama: item.aciklama || '' });
+    setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, kdvOrani: '20', aciklama: item.aciklama || '' });
   };
 
   const giderSil = async (id) => {
@@ -727,7 +733,7 @@ function App() {
     if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
       const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
-      setGiderler(guncelListe);
+      setGelirler(guncelListe);
       localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
 
       const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
@@ -757,7 +763,7 @@ function App() {
 
     try {
       const kdvText = kdvHesaplaMetni(talepForm.tutar, talepForm.kdvOrani);
-      const nihaiAciklama = kdvText ? `${talepForm.aciklama} | ${kdvText}` : talepForm.aciklama;
+      const nihaiAciklama = kdvText ? `${talepForm.aciklama ? talepForm.aciklama + ' | ' : ''}${kdvText}` : talepForm.aciklama;
 
       await fetch(`${API_URL}/GiderTalebi`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1197,7 +1203,7 @@ function App() {
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
 
-                  {/* ESNEK KDV ORANI GİRİŞİ */}
+                  {/* KDV ORANI ESNEK INPUT VE CANLI GÖSTERGE */}
                   <div>
                     <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
@@ -1361,14 +1367,14 @@ function App() {
                     className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} required
                   />
 
-                  {/* ESNEK KDV ORANI GİRİŞİ */}
+                  {/* KDV ORANI ESNEK INPUT */}
                   <div>
                     <label className={`block text-xs font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>KDV Oranı (%):</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="Örn: 20, 16.66, 10, 1" 
+                        placeholder="Örn: 20, 16.67, 10, 1" 
                         value={talepForm.kdvOrani} 
                         onChange={(e) => setTalepForm({ ...talepForm, kdvOrani: e.target.value })} 
                         className={`w-full border ${inputBg} rounded-lg p-2.5 text-sm`} 
