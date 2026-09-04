@@ -235,33 +235,63 @@ function App() {
     const dosya = e.target.files[0];
     if (!dosya) return;
 
-    const toastId = toast.loading("📸 Fiş yapay zeka ile taranıyor, lütfen bekleyin...");
+    const toastId = toast.loading("📸 Fiş akıllı algoritmayla taranıyor, lütfen bekleyin...");
     
     try {
       const { data: { text } } = await Tesseract.recognize(dosya, 'tur', {
         logger: m => {} 
       });
 
-      // 1. Tüm satırları temizle ve boşlukları al
       const satirlar = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
+      const textUpper = text.toUpperCase();
 
-      // 2. Firma Adı Bulma (İçinde harf olan ilk geçerli metni bul)
-      const firmaSatiri = satirlar.find(s => /[a-zA-ZğüşöçİĞÜŞÖÇ]/.test(s) && s.length > 3) || '';
-      const firmaAdi = firmaSatiri.substring(0, 35);
+      // 1. KATEGORİ VE AÇIKLAMA TAHMİNİ
+      let tahminEdilenKategori = hedefForm.kategori || 'Diğer';
+      let otomatikAciklama = 'Fatura / Fiş (Kameradan)';
 
-      // 3. Tutar Bulma Mantığı (Çok daha akıllı)
+      const ulasimKelimeleri = ['BENZİN', 'MOTORİN', 'LPG', 'AKARYAKIT', 'PETROL', 'OPET', 'SHELL', 'TOTAL', 'AYGAZ', 'BP'];
+      const yemekKelimeleri = ['RESTORAN', 'CAFE', 'KAFE', 'LOKANTA', 'DÖNER', 'KEBAP', 'PİDE', 'MARKET', 'GIDA', 'BÜFE', 'MİGROS', 'BİM', 'ŞOK', 'A101'];
+      const ofisKelimeleri = ['KIRTASİYE', 'A4', 'KAĞIT', 'KALEM', 'TEKNOLOJİ', 'BİLGİSAYAR'];
+
+      if (ulasimKelimeleri.some(k => textUpper.includes(k))) {
+          tahminEdilenKategori = 'Ulaşım ve Akaryakıt';
+          otomatikAciklama = 'Akaryakıt / Ulaşım Fişi';
+      } else if (yemekKelimeleri.some(k => textUpper.includes(k))) {
+          tahminEdilenKategori = 'Yemek ve İkram';
+          otomatikAciklama = 'Yemek / Market Fişi';
+      } else if (ofisKelimeleri.some(k => textUpper.includes(k))) {
+          tahminEdilenKategori = 'Ofis Malzemeleri';
+          otomatikAciklama = 'Ofis / Kırtasiye Alışverişi';
+      }
+
+      // 2. TEMİZ FİRMA ADI BULMA ALGORİTMASI
+      let firmaAdi = '';
+      const resmiFirmaSatiri = satirlar.find(s => s.toUpperCase().includes('A.Ş') || s.toUpperCase().includes('LTD') || s.toUpperCase().includes('TİC') || s.toUpperCase().includes('SAN') || s.toUpperCase().includes('MARKET'));
+
+      if (resmiFirmaSatiri) {
+          firmaAdi = resmiFirmaSatiri;
+      } else {
+          // İçinde en az 4 harf olan ve 3'ten az özel karakter barındıran (çöp olmayan) ilk satırı bul
+          const temizSatirlar = satirlar.filter(s => {
+              const harfSayisi = (s.match(/[a-zA-ZğüşöçİĞÜŞÖÇ]/g) || []).length;
+              const ozelKarakterSayisi = (s.match(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,]/g) || []).length;
+              return harfSayisi > 3 && ozelKarakterSayisi < 3;
+          });
+          firmaAdi = temizSatirlar.length > 0 ? temizSatirlar[0] : '';
+      }
+
+      // Geriye kalan nadir çöp karakterleri tamamen temizle
+      firmaAdi = firmaAdi.replace(/[^a-zA-ZğüşöçİĞÜŞÖÇ0-9\s.,-]/g, '').substring(0, 40).trim();
+
+      // 3. EN YÜKSEK TUTARI (TOPLAM) BULMA
       let bulunanTutar = '';
-
-      // YÖNTEM A: Önce klasik kelime bazlı arama yap (TOPLAM, TUTAR, KDV DAHİL vb.)
       const tutarArama = text.match(/(?:TOP|TUTAR|TOPLAM|KDV|NAK[Iİ]T|KRED[Iİ])\s*[:=.\-]?\s*[*]?\s*(\d+[.,]\d{2})/i);
 
       if (tutarArama && tutarArama[1]) {
         bulunanTutar = tutarArama[1].replace(',', '.');
       } else {
-        // YÖNTEM B: Eğer kelimeyi yanlış okuduysa (Örn: T0PLAM), fişteki "XX.XX" formatındaki TÜM para birimlerini bul...
         const tumFiyatlar = text.match(/\d+[.,]\d{2}/g);
         if (tumFiyatlar && tumFiyatlar.length > 0) {
-          // ...ve içlerinden EN BÜYÜK olanı "Toplam Tutar" olarak kabul et!
           const sayiDegerleri = tumFiyatlar.map(s => parseFloat(s.replace(',', '.')));
           bulunanTutar = Math.max(...sayiDegerleri).toString();
         }
@@ -269,20 +299,17 @@ function App() {
 
       setHedefForm({
         ...hedefForm,
-        kimeOdenecek: firmaAdi,
+        kimeOdenecek: firmaAdi || 'Okunamadı',
         tutar: bulunanTutar,
-        aciklama: 'Kameradan otomatik okundu',
+        kategori: tahminEdilenKategori,
+        aciklama: otomatikAciklama,
       });
 
-      if (bulunanTutar) {
-        toast.success(`Fiş başarıyla okundu! Tutar: ${bulunanTutar} TL`, { id: toastId });
-      } else {
-        toast.error("Metin tarandı ancak tutar bulunamadı. Tutarı elle giriniz.", { id: toastId });
-      }
+      toast.success("Fiş okundu! Lütfen bilgileri kontrol edip kaydedin.", { id: toastId });
 
     } catch (error) {
       console.error("OCR Hatası:", error);
-      toast.error("Fiş okunamadı. Lütfen daha aydınlık bir ortamda çekin.", { id: toastId });
+      toast.error("Fiş okunamadı. Lütfen aydınlık bir ortamda çekin.", { id: toastId });
     }
   };
 
