@@ -590,18 +590,33 @@ function App() {
     setGiderForm({ kimeOdenecek: item.kimeOdendi, kategori: item.kategori || 'Diğer', tutar: item.tutar, kdvOrani: '20', aciklama: item.aciklama || '' });
   };
 
+  // TAM YETKİLİ GİDER SİLME (Optimistic UI Güncellemesi Dahil)
   const giderSil = async (id) => {
-    if (!window.confirm("Silmek istediğinize emin misiniz?")) return;
+    if (!window.confirm("Bu gideri silmek istediğinize emin misiniz?")) return;
     try {
+      const guncelListe = giderler.filter(g => g.id !== id && g.gercekId !== id);
+      setGiderler(guncelListe);
+      localStorage.setItem('kasa_giderler', JSON.stringify(guncelListe));
+
       const userRol = girisYapanKullanici ? girisYapanKullanici.rol : '';
       const response = await fetch(`${API_URL}/Gider/${id}?rol=${userRol}`, { method: 'DELETE' });
+      
       if (response.ok) {
+        if (id === giderTaslakId) {
+           setGiderTaslakId(null);
+           setGiderForm({ kimeOdenecek: '', kategori: kategoriler[0], tutar: '', kdvOrani: '20', aciklama: '' });
+           localStorage.removeItem('kasa_giderForm');
+           localStorage.removeItem('kasa_giderTaslakId');
+        }
         verileriGetir();
-        toast.success("Silindi.");
+        toast.success("Gider silindi.");
       } else {
-        toast.error("Yetkiniz yok.");
+        const errData = await response.json().catch(() => ({}));
+        toast.error(errData.message || "Bu işlem için yetkiniz yok.");
+        verileriGetir();
       }
     } catch (error) { 
+      console.error("Silme hatası:", error); 
       toast.error("Silme başarısız.");
     }
   };
@@ -643,18 +658,31 @@ function App() {
     setGelirForm({ kaynak: item.kaynak, tutar: item.tutar, aciklama: item.aciklama || '' });
   };
 
+  // TAM YETKİLİ GELİR SİLME
   const gelirSil = async (id) => {
-    if (!window.confirm("Silmek istediğinize emin misiniz?")) return;
+    if (!window.confirm("Bu geliri silmek istediğinize emin misiniz?")) return;
     try {
+      const guncelListe = gelirler.filter(g => g.id !== id && g.gercekId !== id);
+      setGelirler(guncelListe);
+      localStorage.setItem('kasa_gelirler', JSON.stringify(guncelListe));
+
       const response = await fetch(`${API_URL}/Gelir/${id}`, { method: 'DELETE' });
       if (response.ok) {
+        if (id === gelirTaslakId) {
+           setGelirTaslakId(null);
+           setGelirForm({ kaynak: '', tutar: '', aciklama: '' });
+           localStorage.removeItem('kasa_gelirForm');
+           localStorage.removeItem('kasa_gelirTaslakId');
+        }
         verileriGetir();
         toast.success("Gelir silindi.");
       } else {
-        toast.error("Silinemedi.");
+        toast.error("Gelir silinemedi.");
+        verileriGetir();
       }
     } catch (error) { 
-      toast.error("Silme başarısız.");
+      console.error("Gelir silme hatası:", error); 
+      toast.error("Gelir silme hatası.");
     }
   };
 
@@ -1199,7 +1227,7 @@ function App() {
                 <select value={yeniKullaniciForm.rol} onChange={(e) => setYeniKullaniciForm({ ...yeniKullaniciForm, rol: e.target.value })} className={`w-full border ${inputBg} rounded-lg p-2 text-sm`}>
                   <option value="Personel" className={darkMode ? 'bg-slate-900 text-white' : ''}>Personel</option>
                   <option value="Muhasebe" className={darkMode ? 'bg-slate-900 text-white' : ''}>Muhasebe</option>
-                  <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici / Sistem Yöneticisi</option>
+                  <option value="Yonetici" className={darkMode ? 'bg-slate-900 text-white' : ''}>Yönetici</option>
                 </select>
                 <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded text-sm">Kaydet</button>
               </form>
@@ -1214,7 +1242,7 @@ function App() {
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {kategoriler.map((kat, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs p-1 bg-slate-500/10 rounded">
-                    <span><span>{kat}</span></span>
+                    <span>{kat}</span>
                     <button onClick={() => kategoriSil(kat)} className="text-red-500">Sil</button>
                   </div>
                 ))}
@@ -1240,7 +1268,7 @@ function App() {
                       <td className="py-3">{kul.rol}</td>
                       <td className="py-3 text-right space-x-2">
                         <button onClick={() => kullaniciDuzenleBaslat(kul)} className="text-amber-500 text-xs">Düzenle</button>
-                        <button onClick={() => kullaniciSil(kul.id)} className="text-red-500 text-xs">Sil</button>
+                        <button onClick={() => kullaniciSil(kul.id)} className="text-red-500 text-xs">Silme Yetkisi</button>
                       </td>
                     </tr>
                   ))}
@@ -1255,4 +1283,4 @@ function App() {
   )
 }
 
-export data App -> export default App
+export default App
